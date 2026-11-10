@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>附录 A · 附录 · 速查与资源总表 | 数字图像处理：从经典算法到智能方法</title>
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/toc.js" defer></script>
+<script src="../assets/app.js" defer></script>
+</head>
+<body data-root="../" data-chapter="A" data-page="appendix">
+<aside id="sidebar"></aside>
+<main class="book-page">
+<nav class="breadcrumb"><a href="../index.html">总目录</a> / 附录</nav>
+<header class="chapter-head">
+<span class="kicker">附录 · 速查与资源总表</span>
+<h1><span class="ch-num">附录 A</span>附录 · 速查与资源总表</h1>
+<p class="lede">Octave 函数索引、传统算法速查、术语对照、调试清单与全书开源工程/扩展链接总表。</p>
+<div class="meta">
+<span class="badge done">已完稿</span>
+<span>建议 按需查阅</span>
+<span>1 个 Octave 实例</span>
+<span class="badge upper">上卷 · 传统算法</span>
+<span>数字图像处理：从经典算法到智能方法</span>
+</div></header>
+<div class="card objectives"><span class="card-label">学习目标</span><ul>
+<li>能快速查到某个传统算法对应的 Octave 核心函数与章节</li>
+<li>能按任务找到官方开源工程</li>
+<li>能按调试清单定位 Octave 代码运行异常</li>
+<li>知道如何为本书补充内容</li>
+</ul></div>
+<section id="map"><h2><span class="sec-num">§</span>知识点地图</h2>
+<p class="code-hint">每个知识点都配了 1～2 个扩展学习链接；本章完整资源清单见 <a href="#extra-links">扩展学习</a>。</p>
+<table><thead><tr><th style="width:44px">#</th><th style="width:26%">知识点</th><th>扩展学习</th><th style="width:100px">状态</th></tr></thead><tbody>
+<tr><td>1</td><td>Octave 核心函数速查</td><td><a href="https://octave.org/" target="_blank" rel="noopener">GNU Octave</a> · <a href="https://docs.octave.org/latest/" target="_blank" rel="noopener">Octave 官方文档</a></td><td>正文已覆盖</td></tr>
+<tr><td>2</td><td>传统算法速查表</td><td><a href="https://docs.octave.org/latest/" target="_blank" rel="noopener">Octave 官方文档</a> · <a href="https://scikit-image.org/docs/stable/user_guide/" target="_blank" rel="noopener">scikit-image User Guide</a></td><td>正文已覆盖</td></tr>
+<tr><td>3</td><td>开源工程总表</td><td><a href="https://docs.octave.org/latest/" target="_blank" rel="noopener">Octave 官方文档</a> · <a href="https://scikit-image.org/docs/stable/user_guide/" target="_blank" rel="noopener">scikit-image User Guide</a></td><td>正文已覆盖</td></tr>
+<tr><td>4</td><td>术语中英对照</td><td><a href="https://docs.octave.org/latest/" target="_blank" rel="noopener">Octave 官方文档</a> · <a href="https://scikit-image.org/docs/stable/user_guide/" target="_blank" rel="noopener">scikit-image User Guide</a></td><td>正文已覆盖</td></tr>
+<tr><td>5</td><td>常见错误与调试</td><td><a href="https://docs.octave.org/latest/" target="_blank" rel="noopener">Octave 官方文档</a> · <a href="https://scikit-image.org/docs/stable/user_guide/" target="_blank" rel="noopener">scikit-image User Guide</a></td><td>正文已覆盖</td></tr>
+<tr><td>6</td><td>参考教材与课程</td><td><a href="https://docs.octave.org/latest/" target="_blank" rel="noopener">Octave 官方文档</a> · <a href="https://scikit-image.org/docs/stable/user_guide/" target="_blank" rel="noopener">scikit-image User Guide</a></td><td>正文已覆盖</td></tr>
+<tr><td>7</td><td>扩展学习链接总表</td><td><a href="https://docs.octave.org/latest/" target="_blank" rel="noopener">Octave 官方文档</a> · <a href="https://scikit-image.org/docs/stable/user_guide/" target="_blank" rel="noopener">scikit-image User Guide</a></td><td>正文已覆盖</td></tr>
+</tbody></table></section>
+<section id="sA-1"><h2><span class="sec-num">§A.1</span>Octave 核心函数速查</h2>
+<p>本书示例只使用下表的核心函数，<strong>不需要安装 image 包</strong>。文件一律 UTF-8 编码，图像统一为 <code>double</code> 型 <code>[0,1]</code> 矩阵。</p>
+<table><thead><tr><th>类别</th><th>函数</th><th>用途 / 章节</th></tr></thead><tbody>
+<tr><td>造图</td><td><code>meshgrid</code>, <code>zeros</code>, <code>ones</code>, <code>linspace</code>, <code>repmat</code></td><td>合成测试图像与掩模（01）</td></tr>
+<tr><td>随机</td><td><code>rand</code>, <code>randn</code>, <code>rand("seed",…)</code></td><td>噪声注入与可复现（01、06）</td></tr>
+<tr><td>滤波</td><td><code>conv2</code>, <code>fft2</code>, <code>ifft2</code>, <code>fftshift</code>, <code>ifftshift</code></td><td>空域/频域滤波（04、05、06）</td></tr>
+<tr><td>插值</td><td><code>interp1</code>, <code>interp2</code>, <code>circshift</code></td><td>LUT 映射、几何变换（03、07）</td></tr>
+<tr><td>统计</td><td><code>mean</code>, <code>std</code>, <code>min</code>, <code>max</code>, <code>cumsum</code>, <code>median</code>, <code>sum</code>, <code>histc</code></td><td>直方图、矩、评价指标（02、12、13）</td></tr>
+<tr><td>显示</td><td><code>imagesc</code>, <code>colormap gray</code>, <code>axis image off</code>, <code>subplot</code>, <code>plot</code>, <code>bar</code>, <code>colorbar</code></td><td>可视化（全书）</td></tr>
+<tr><td>输出</td><td><code>printf</code>, <code>disp</code>, <code>getenv</code>, <code>strcmp</code></td><td>数值验证与 headless 控制（全书）</td></tr>
+</tbody></table>
+<pre class="code" data-file="inline" data-lang="Shell"><code>octave --no-gui --quiet code/A-template.m          # 交互运行单个脚本
+IP_HEADLESS=1 ./tools/run_octave.sh                 # 批量验证全书示例</code></pre>
+</section>
+<section id="sA-2"><h2><span class="sec-num">§A.2</span>传统算法速查表</h2>
+<table><thead><tr><th>任务</th><th>核心公式 / 结构</th><th>关键参数</th><th>章节</th></tr></thead><tbody>
+<tr><td>灰度变换</td><td><code>g = f^γ</code>、<code>g = c·log(1+f)</code></td><td>γ</td><td>03</td></tr>
+<tr><td>直方图均衡</td><td><code>s_k = Σ_{j≤k} n_j/(MN)</code></td><td>灰度级数</td><td>03</td></tr>
+<tr><td>线性滤波</td><td><code>g = conv2(f, w, "same")</code></td><td>核尺寸、σ</td><td>04</td></tr>
+<tr><td>中值滤波</td><td>邻域排序取中位</td><td>窗口尺寸</td><td>04</td></tr>
+<tr><td>锐化</td><td><code>f + λ∇²f</code>、USM</td><td>λ</td><td>04</td></tr>
+<tr><td>频域滤波</td><td><code>real(ifft2(H·fft2(f)))</code></td><td>D₀、阶数 n</td><td>05</td></tr>
+<tr><td>维纳复原</td><td><code>H*/(|H|²+K)·G</code></td><td>K</td><td>06</td></tr>
+<tr><td>几何变换</td><td><code>T⁻¹</code> 反向映射 + 插值</td><td>θ、插值方式</td><td>07</td></tr>
+<tr><td>色彩空间</td><td><code>Y=0.299R+0.587G+0.114B</code>、HSV</td><td>S 阈值</td><td>08</td></tr>
+<tr><td>形态学</td><td>开 <code>(A⊖B)⊕B</code>、闭 <code>(A⊕B)⊖B</code></td><td>结构元素</td><td>09</td></tr>
+<tr><td>边缘</td><td>Sobel + NMS + 双阈值</td><td>σ、Th、Tl</td><td>10</td></tr>
+<tr><td>角点</td><td><code>R = det(M) − k·trace(M)²</code></td><td>k、窗口</td><td>11</td></tr>
+<tr><td>Otsu</td><td><code>max w₀w₁(μ₀−μ₁)²</code></td><td>灰度级数</td><td>12</td></tr>
+<tr><td>纹理</td><td>LBP 编码直方图、GLCM</td><td>半径、方向</td><td>13</td></tr>
+<tr><td>JPEG</td><td><code>T·B·Tᵀ</code> + 量化表 Q</td><td>qscale</td><td>14</td></tr>
+<tr><td>评价</td><td><code>MSE</code>、<code>PSNR=10log10(1/MSE)</code>、SSIM</td><td>L=1</td><td>02</td></tr>
+</tbody></table>
+</section>
+<section id="sA-3"><h2><span class="sec-num">§A.3</span>下卷开源工程总表</h2>
+<p>下卷各章推荐的官方 / 开源实现，按章节汇总。每张卡片在各章「开源工程」栏目里还附有推荐用法。</p><table><thead><tr><th style="width:26%">章节</th><th>开源工程</th></tr></thead><tbody><tr><td><a href='../part3/16-learning-baselines/index.html'>第 16 章 从手工特征到学习</a></td><td><a href="https://github.com/scikit-learn/scikit-learn" target="_blank" rel="noopener">scikit-learn</a> · <a href="https://github.com/opencv/opencv" target="_blank" rel="noopener">OpenCV 官方仓库</a> · <a href="https://scikit-image.org/" target="_blank" rel="noopener">scikit-image</a> · <a href="https://cs231n.github.io/" target="_blank" rel="noopener">Stanford CS231n</a> · <a href="https://d2l.ai/" target="_blank" rel="noopener">动手学深度学习 d2l.ai</a> · <a href="https://paperswithcode.com/" target="_blank" rel="noopener">Papers with Code</a></td></tr>
+<tr><td><a href='../part3/17-cnn-fundamentals/index.html'>第 17 章 神经网络与 CNN 基础</a></td><td><a href="https://github.com/pytorch/pytorch" target="_blank" rel="noopener">PyTorch</a> · <a href="https://pytorch.org/tutorials/" target="_blank" rel="noopener">PyTorch Tutorials</a> · <a href="https://d2l.ai/" target="_blank" rel="noopener">动手学深度学习 d2l.ai</a> · <a href="https://cs231n.github.io/" target="_blank" rel="noopener">Stanford CS231n</a> · <a href="https://github.com/kornia/kornia" target="_blank" rel="noopener">Kornia</a> · <a href="https://github.com/albumentations-team/albumentations" target="_blank" rel="noopener">Albumentations</a></td></tr>
+<tr><td><a href='../part3/18-cnn-architectures/index.html'>第 18 章 经典 CNN 架构与迁移学习</a></td><td><a href="https://github.com/pytorch/vision" target="_blank" rel="noopener">torchvision</a> · <a href="https://github.com/huggingface/pytorch-image-models" target="_blank" rel="noopener">pytorch-image-models (timm)</a> · <a href="https://github.com/KaimingHe/deep-residual-networks" target="_blank" rel="noopener">Deep Residual Networks</a> · <a href="https://github.com/facebookresearch/ConvNeXt" target="_blank" rel="noopener">ConvNeXt</a> · <a href="https://github.com/facebookresearch/mae" target="_blank" rel="noopener">MAE</a> · <a href="https://github.com/facebookresearch/dinov2" target="_blank" rel="noopener">DINOv2</a> · <a href="https://pytorch.org/tutorials/" target="_blank" rel="noopener">PyTorch Tutorials</a></td></tr>
+<tr><td><a href='../part3/19-datasets-evaluation/index.html'>第 19 章 数据集、评价指标与实验方法</a></td><td><a href="https://www.image-net.org/" target="_blank" rel="noopener">ImageNet</a> · <a href="https://cocodataset.org/" target="_blank" rel="noopener">MS COCO</a> · <a href="http://host.robots.ox.ac.uk/pascal/VOC/" target="_blank" rel="noopener">PASCAL VOC</a> · <a href="https://www.cityscapes-dataset.com/" target="_blank" rel="noopener">Cityscapes</a> · <a href="https://github.com/Lightning-AI/torchmetrics" target="_blank" rel="noopener">TorchMetrics</a> · <a href="https://github.com/cocodataset/cocoapi" target="_blank" rel="noopener">COCO API</a> · <a href="https://github.com/cvat-ai/cvat" target="_blank" rel="noopener">CVAT</a> · <a href="https://github.com/albumentations-team/albumentations" target="_blank" rel="noopener">Albumentations</a></td></tr>
+<tr><td><a href='../part4/20-classification-xai/index.html'>第 20 章 图像分类与可解释性</a></td><td><a href="https://github.com/open-mmlab/mmpretrain" target="_blank" rel="noopener">MMPreTrain</a> · <a href="https://github.com/huggingface/pytorch-image-models" target="_blank" rel="noopener">pytorch-image-models (timm)</a> · <a href="https://github.com/jacobgil/pytorch-grad-cam" target="_blank" rel="noopener">pytorch-grad-cam</a> · <a href="https://github.com/pytorch/captum" target="_blank" rel="noopener">Captum</a> · <a href="https://github.com/Lightning-AI/torchmetrics" target="_blank" rel="noopener">TorchMetrics</a> · <a href="https://distill.pub/" target="_blank" rel="noopener">Distill.pub</a></td></tr>
+<tr><td><a href='../part4/21-object-detection/index.html'>第 21 章 目标检测</a></td><td><a href="https://github.com/ultralytics/ultralytics" target="_blank" rel="noopener">Ultralytics YOLO</a> · <a href="https://github.com/ultralytics/yolov5" target="_blank" rel="noopener">YOLOv5</a> · <a href="https://github.com/open-mmlab/mmdetection" target="_blank" rel="noopener">MMDetection</a> · <a href="https://github.com/facebookresearch/detectron2" target="_blank" rel="noopener">Detectron2</a> · <a href="https://github.com/facebookresearch/detr" target="_blank" rel="noopener">DETR</a> · <a href="https://github.com/IDEA-Research/GroundingDINO" target="_blank" rel="noopener">GroundingDINO</a> · <a href="https://github.com/cocodataset/cocoapi" target="_blank" rel="noopener">COCO API</a> · <a href="https://github.com/pytorch/vision" target="_blank" rel="noopener">torchvision</a></td></tr>
+<tr><td><a href='../part4/22-segmentation-networks/index.html'>第 22 章 深度图像分割</a></td><td><a href="https://github.com/open-mmlab/mmsegmentation" target="_blank" rel="noopener">MMSegmentation</a> · <a href="https://github.com/milesial/Pytorch-UNet" target="_blank" rel="noopener">Pytorch-UNet</a> · <a href="https://github.com/shelhamer/fcn.berkeleyvision.org" target="_blank" rel="noopener">FCN (Berkeley)</a> · <a href="https://github.com/facebookresearch/Mask2Former" target="_blank" rel="noopener">Mask2Former</a> · <a href="https://github.com/facebookresearch/segment-anything" target="_blank" rel="noopener">Segment Anything (SAM)</a> · <a href="https://github.com/facebookresearch/sam2" target="_blank" rel="noopener">SAM 2</a> · <a href="https://github.com/Project-MONAI/MONAI" target="_blank" rel="noopener">MONAI</a> · <a href="https://github.com/facebookresearch/detectron2" target="_blank" rel="noopener">Detectron2</a></td></tr>
+<tr><td><a href='../part4/23-deep-restoration/index.html'>第 23 章 深度复原与超分辨率</a></td><td><a href="https://github.com/cszn/DnCNN" target="_blank" rel="noopener">DnCNN</a> · <a href="https://github.com/xinntao/Real-ESRGAN" target="_blank" rel="noopener">Real-ESRGAN</a> · <a href="https://github.com/xinntao/ESRGAN" target="_blank" rel="noopener">ESRGAN</a> · <a href="https://github.com/huggingface/diffusers" target="_blank" rel="noopener">Hugging Face Diffusers</a> · <a href="https://scikit-image.org/docs/stable/user_guide/" target="_blank" rel="noopener">scikit-image User Guide</a> · <a href="https://github.com/Lightning-AI/torchmetrics" target="_blank" rel="noopener">TorchMetrics</a></td></tr>
+<tr><td><a href='../part4/24-generative-models/index.html'>第 24 章 生成模型与图像翻译</a></td><td><a href="https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix" target="_blank" rel="noopener">pix2pix / CycleGAN</a> · <a href="https://github.com/NVlabs/stylegan3" target="_blank" rel="noopener">StyleGAN3</a> · <a href="https://github.com/hojonathanho/diffusion" target="_blank" rel="noopener">DDPM (官方)</a> · <a href="https://github.com/CompVis/stable-diffusion" target="_blank" rel="noopener">Stable Diffusion</a> · <a href="https://github.com/CompVis/latent-diffusion" target="_blank" rel="noopener">Latent Diffusion</a> · <a href="https://github.com/huggingface/diffusers" target="_blank" rel="noopener">Hugging Face Diffusers</a> · <a href="https://en.wikipedia.org/wiki/Generative_adversarial_network" target="_blank" rel="noopener">Generative adversarial network</a> · <a href="https://en.wikipedia.org/wiki/Variational_autoencoder" target="_blank" rel="noopener">Variational autoencoder</a></td></tr>
+<tr><td><a href='../part4/25-vision-transformers/index.html'>第 25 章 视觉 Transformer 与基础模型</a></td><td><a href="https://github.com/google-research/vision_transformer" target="_blank" rel="noopener">Vision Transformer (Google)</a> · <a href="https://github.com/microsoft/Swin-Transformer" target="_blank" rel="noopener">Swin Transformer</a> · <a href="https://github.com/facebookresearch/mae" target="_blank" rel="noopener">MAE</a> · <a href="https://github.com/facebookresearch/dinov2" target="_blank" rel="noopener">DINOv2</a> · <a href="https://github.com/openai/CLIP" target="_blank" rel="noopener">CLIP</a> · <a href="https://github.com/mlfoundations/open_clip" target="_blank" rel="noopener">OpenCLIP</a> · <a href="https://github.com/haotian-liu/LLaVA" target="_blank" rel="noopener">LLaVA</a> · <a href="https://github.com/huggingface/transformers" target="_blank" rel="noopener">Hugging Face Transformers</a> · <a href="https://github.com/facebookresearch/segment-anything" target="_blank" rel="noopener">Segment Anything (SAM)</a></td></tr>
+<tr><td><a href='../part4/26-projects/index.html'>第 26 章 工程落地与综合项目</a></td><td><a href="https://github.com/onnx/onnx" target="_blank" rel="noopener">ONNX</a> · <a href="https://github.com/microsoft/onnxruntime" target="_blank" rel="noopener">ONNX Runtime</a> · <a href="https://github.com/NVIDIA/TensorRT" target="_blank" rel="noopener">TensorRT</a> · <a href="https://github.com/openvinotoolkit/openvino" target="_blank" rel="noopener">OpenVINO</a> · <a href="https://github.com/Tencent/ncnn" target="_blank" rel="noopener">ncnn</a> · <a href="https://github.com/cvat-ai/cvat" target="_blank" rel="noopener">CVAT</a> · <a href="https://github.com/HumanSignal/label-studio" target="_blank" rel="noopener">Label Studio</a> · <a href="https://github.com/ultralytics/ultralytics" target="_blank" rel="noopener">Ultralytics YOLO</a> · <a href="https://github.com/Lightning-AI/torchmetrics" target="_blank" rel="noopener">TorchMetrics</a></td></tr></tbody></table>
+</section>
+<section id="sA-4"><h2><span class="sec-num">§A.4</span>术语中英对照</h2>
+<table><thead><tr><th>中文</th><th>English</th><th>中文</th><th>English</th></tr></thead><tbody>
+<tr><td>卷积</td><td>convolution</td><td>直方图均衡</td><td>histogram equalization</td></tr>
+<tr><td>点扩散函数</td><td>point spread function</td><td>维纳滤波</td><td>Wiener filter</td></tr>
+<tr><td>傅里叶变换</td><td>Fourier transform</td><td>离散余弦变换</td><td>discrete cosine transform</td></tr>
+<tr><td>腐蚀 / 膨胀</td><td>erosion / dilation</td><td>分水岭</td><td>watershed</td></tr>
+<tr><td>边缘检测</td><td>edge detection</td><td>非极大抑制</td><td>non-maximum suppression</td></tr>
+<tr><td>尺度不变特征</td><td>SIFT</td><td>随机一致性采样</td><td>RANSAC</td></tr>
+<tr><td>阈值分割</td><td>thresholding</td><td>活动轮廓</td><td>active contour</td></tr>
+<tr><td>感受野</td><td>receptive field</td><td>反向传播</td><td>backpropagation</td></tr>
+<tr><td>残差连接</td><td>residual connection</td><td>迁移学习</td><td>transfer learning</td></tr>
+<tr><td>交并比</td><td>IoU</td><td>平均精度均值</td><td>mAP</td></tr>
+<tr><td>语义分割</td><td>semantic segmentation</td><td>实例分割</td><td>instance segmentation</td></tr>
+<tr><td>超分辨率</td><td>super-resolution</td><td>感知损失</td><td>perceptual loss</td></tr>
+<tr><td>扩散模型</td><td>diffusion model</td><td>自监督学习</td><td>self-supervised learning</td></tr>
+<tr><td>基础模型</td><td>foundation model</td><td>量化感知训练</td><td>QAT</td></tr>
+</tbody></table>
+</section>
+<section id="sA-5"><h2><span class="sec-num">§A.5</span>常见错误与调试清单</h2>
+<ol><li><strong>下标越界 / 尺寸不匹配</strong>：先 <code>whos</code> 看维度；<code>conv2(...,"valid")</code> 会缩小输出。</li>
+<li><strong>全白或全黑</strong>：检查是否忘了 <code>min(max(a,0),1)</code>，以及 <code>imagesc(a,[0 1])</code> 的固定范围。</li>
+<li><strong>uint8 饱和</strong>：所有运算前先 <code>double(a)/255</code>。</li>
+<li><strong>结果整体偏移</strong>：频域忘了 <code>fftshift/ifftshift</code> 配对；或核尺寸为偶数。</li>
+<li><strong>滤波后边缘发暗</strong>：补零边界导致，改用 replicate / symmetric 填充。</li>
+<li><strong>几何变换镜像/转置</strong>：<code>(r,c)</code> 与 <code>(x,y)</code> 顺序写反。</li>
+<li><strong>两次运行结果不同</strong>：没有固定 <code>rand/randn</code> 种子。</li>
+<li><strong>掩模出现小数标签</strong>：对整数标签图用了双线性插值。</li>
+<li><strong>headless 报错</strong>：设 <code>IP_HEADLESS=1</code> 跳过绘图；或检查 Octave 图形后端。</li></ol>
+</section>
+<section id="sA-6"><h2><span class="sec-num">§A.6</span>参考教材与在线课程</h2>
+<ul><li><strong>传统算法</strong>：Gonzalez &amp; Woods《Digital Image Processing》；scikit-image User Guide 与 OpenCV Tutorials 作为可运行参考。</li>
+<li><strong>深度学习与视觉</strong>：Stanford <a href="https://cs231n.github.io/" target="_blank" rel="noopener">CS231n</a>、<a href="https://d2l.ai/" target="_blank" rel="noopener">动手学深度学习</a>、<a href="https://pytorch.org/tutorials/" target="_blank" rel="noopener">PyTorch Tutorials</a>。</li>
+<li><strong>论文与代码</strong>：<a href="https://paperswithcode.com/" target="_blank" rel="noopener">Papers with Code</a> 按任务查 SOTA 与官方仓库；<a href="https://arxiv.org/" target="_blank" rel="noopener">arXiv</a> 读原文。</li>
+<li><strong>工具</strong>：<a href="https://docs.octave.org/latest/" target="_blank" rel="noopener">Octave 官方文档</a>、<a href="https://imagej.net/" target="_blank" rel="noopener">ImageJ / Fiji</a> 用于人工核对测量结果。</li></ul>
+<div class="card tip"><p style="margin-bottom:0"><strong>维护约定</strong>：全书由 <code>tools/chapters_*.py</code>（章节内容）、<code>tools/book_resources.py</code>（链接库）、<code>tools/build_book.py</code>（渲染器）单一数据源生成。修改后依次运行 <code>python3 tools/build_book.py --force</code>、<code>python3 tools/extract_code.py</code>、<code>python3 tools/check_book.py</code>。</p></div>
+</section>
+<section id="sA-7"><h2><span class="sec-num">§A.7</span>扩展学习链接总表</h2>
+<p>本书全部外部链接的唯一来源，按用途分组。所有链接同时出现在对应章节的「知识点地图」与「扩展学习」里。</p>
+<h3>工具（5）</h3>
+<table><thead><tr><th style="width:26%">名称</th><th>说明</th></tr></thead><tbody>
+<tr><td><a href="https://octave.org/" target="_blank" rel="noopener">GNU Octave</a></td><td>免费、与 MATLAB 语法高度兼容的科学计算环境，本书上卷代码的目标平台</td></tr>
+<tr><td><a href="https://octave.sourceforge.io/image/" target="_blank" rel="noopener">Octave image 包</a></td><td>可选的图像处理函数包；本书示例刻意不依赖它</td></tr>
+<tr><td><a href="https://scikit-image.org/" target="_blank" rel="noopener">scikit-image</a></td><td>Python 图像处理库，对照阅读每类传统算法的生产级实现</td></tr>
+<tr><td><a href="https://github.com/opencv/opencv" target="_blank" rel="noopener">OpenCV 官方仓库</a></td><td>工业界最常用的计算机视觉库，源码与示例均可直接查阅</td></tr>
+<tr><td><a href="https://imagej.net/" target="_blank" rel="noopener">ImageJ / Fiji</a></td><td>科研图像测量与批处理工具，适合做人工核对</td></tr>
+</tbody></table>
+<h3>文档（7）</h3>
+<table><thead><tr><th style="width:26%">名称</th><th>说明</th></tr></thead><tbody>
+<tr><td><a href="https://docs.octave.org/latest/" target="_blank" rel="noopener">Octave 官方文档</a></td><td>函数参考与语言手册，查 conv2/fft2/imagesc 的权威出处</td></tr>
+<tr><td><a href="https://scikit-image.org/docs/stable/user_guide/" target="_blank" rel="noopener">scikit-image User Guide</a></td><td>按任务组织的传统算法讲解，适合与本书章节互相对照</td></tr>
+<tr><td><a href="https://docs.opencv.org/master/d6/d00/tutorial_py_root.html" target="_blank" rel="noopener">OpenCV Tutorials</a></td><td>官方教程，含滤波、形态学、特征与几何变换的示例</td></tr>
+<tr><td><a href="https://numpy.org/doc/stable/" target="_blank" rel="noopener">NumPy 文档</a></td><td>数组与广播规则；理解图像即矩阵的必经之路</td></tr>
+<tr><td><a href="https://paperswithcode.com/" target="_blank" rel="noopener">Papers with Code</a></td><td>按任务查 SOTA 方法与官方代码仓库</td></tr>
+<tr><td><a href="https://arxiv.org/" target="_blank" rel="noopener">arXiv</a></td><td>预印本检索；下卷各章论文的主要出处</td></tr>
+<tr><td><a href="https://pytorch.org/tutorials/" target="_blank" rel="noopener">PyTorch Tutorials</a></td><td>官方训练循环、迁移学习与部署示例</td></tr>
+</tbody></table>
+<h3>课程（3）</h3>
+<table><thead><tr><th style="width:26%">名称</th><th>说明</th></tr></thead><tbody>
+<tr><td><a href="https://cs231n.github.io/" target="_blank" rel="noopener">Stanford CS231n</a></td><td>经典视觉课程笔记，下卷最好的免费配套教材</td></tr>
+<tr><td><a href="https://d2l.ai/" target="_blank" rel="noopener">动手学深度学习 d2l.ai</a></td><td>含可运行代码的深度学习教材，中文版可用</td></tr>
+<tr><td><a href="https://distill.pub/" target="_blank" rel="noopener">Distill.pub</a></td><td>可视化解释深度学习与可解释性的高质量文章</td></tr>
+</tbody></table>
+<h3>百科（57）</h3>
+<table><thead><tr><th style="width:26%">名称</th><th>说明</th></tr></thead><tbody>
+<tr><td><a href="https://en.wikipedia.org/wiki/Digital_image_processing" target="_blank" rel="noopener">Digital image processing</a></td><td>学科总览与术语索引</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Convolution" target="_blank" rel="noopener">Convolution</a></td><td>线性滤波的数学定义与性质</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Kernel_(image_processing)" target="_blank" rel="noopener">Kernel (image processing)</a></td><td>卷积核 / 滤波掩模的条目</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Gaussian_blur" target="_blank" rel="noopener">Gaussian blur</a></td><td>高斯核的可分离性与尺度参数</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Median_filter" target="_blank" rel="noopener">Median filter</a></td><td>排序统计滤波与椒盐噪声</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Bilateral_filter" target="_blank" rel="noopener">Bilateral filter</a></td><td>保边平滑的双权重思想</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Non-local_means" target="_blank" rel="noopener">Non-local means</a></td><td>利用图像自相似性的去噪</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Histogram_equalization" target="_blank" rel="noopener">Histogram equalization</a></td><td>累积分布函数映射的推导</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Adaptive_histogram_equalization" target="_blank" rel="noopener">Adaptive histogram equalization</a></td><td>CLAHE 与限制对比度的动机</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Gamma_correction" target="_blank" rel="noopener">Gamma correction</a></td><td>显示非线性与幂律变换</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Discrete_Fourier_transform" target="_blank" rel="noopener">Discrete Fourier transform</a></td><td>二维 DFT 的定义与性质</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Fast_Fourier_transform" target="_blank" rel="noopener">Fast Fourier transform</a></td><td>FFT 的复杂度与实现要点</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Discrete_cosine_transform" target="_blank" rel="noopener">Discrete cosine transform</a></td><td>DCT 的能量集中特性</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/JPEG" target="_blank" rel="noopener">JPEG</a></td><td>DCT + 量化 + 熵编码的完整流程</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Huffman_coding" target="_blank" rel="noopener">Huffman coding</a></td><td>变长熵编码与码长下界</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Entropy_(information_theory)" target="_blank" rel="noopener">Entropy (information theory)</a></td><td>信息熵与压缩极限</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Discrete_wavelet_transform" target="_blank" rel="noopener">Discrete wavelet transform</a></td><td>多分辨率分析与 JPEG2000 基础</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Wiener_filter" target="_blank" rel="noopener">Wiener filter</a></td><td>最小均方误差意义下的最优线性复原</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Peak_signal-to-noise_ratio" target="_blank" rel="noopener">Peak signal-to-noise ratio</a></td><td>基于 MSE 的复原评价指标及其局限</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Structural_similarity" target="_blank" rel="noopener">Structural similarity</a></td><td>结构相似度的亮度/对比度/结构三项</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Canny_edge_detector" target="_blank" rel="noopener">Canny edge detector</a></td><td>高斯平滑、非极大抑制与双阈值</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Sobel_operator" target="_blank" rel="noopener">Sobel operator</a></td><td>离散梯度核与方向估计</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Hough_transform" target="_blank" rel="noopener">Hough transform</a></td><td>参数空间投票检测直线与圆</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Scale-invariant_feature_transform" target="_blank" rel="noopener">Scale-invariant feature transform</a></td><td>尺度空间、关键点与描述子</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Oriented_FAST_and_rotated_BRIEF" target="_blank" rel="noopener">ORB (feature descriptor)</a></td><td>实时二值特征与工程取舍</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Corner_detection" target="_blank" rel="noopener">Corner detection</a></td><td>自相关矩阵与角点响应</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Random_sample_consensus" target="_blank" rel="noopener">Random sample consensus</a></td><td>含外点时的鲁棒模型拟合</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Mathematical_morphology" target="_blank" rel="noopener">Mathematical morphology</a></td><td>集合论视角下的腐蚀与膨胀</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Watershed_(image_processing)" target="_blank" rel="noopener">Watershed (image processing)</a></td><td>地形淹没类比与过分割</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Distance_transform" target="_blank" rel="noopener">Distance transform</a></td><td>二值图距离图与分水岭种子</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Otsu%27s_method" target="_blank" rel="noopener">Otsu&#x27;s method</a></td><td>类间方差最大化的自动阈值</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/K-means_clustering" target="_blank" rel="noopener">k-means clustering</a></td><td>迭代聚类与初始化敏感性</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Graph_cuts_in_computer_vision" target="_blank" rel="noopener">Graph cuts in computer vision</a></td><td>能量最小化与交互式分割</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Active_contour_model" target="_blank" rel="noopener">Active contour model</a></td><td>蛇模型与水平集方法</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Local_binary_patterns" target="_blank" rel="noopener">Local binary patterns</a></td><td>局部纹理描述子</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Co-occurrence_matrix" target="_blank" rel="noopener">Co-occurrence matrix</a></td><td>灰度共生矩阵与 Haralick 特征</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Image_moment" target="_blank" rel="noopener">Image moment</a></td><td>矩、质心与 Hu 不变矩</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Bilinear_interpolation" target="_blank" rel="noopener">Bilinear interpolation</a></td><td>几何变换中的插值权重</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Affine_transformation" target="_blank" rel="noopener">Affine transformation</a></td><td>平移/旋转/缩放/剪切的矩阵表示</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Homography" target="_blank" rel="noopener">Homography</a></td><td>透视变换与 4 点对应</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/HSL_and_HSV" target="_blank" rel="noopener">HSL and HSV</a></td><td>色相/饱和度/明度的定义与转换</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/CIELAB_color_space" target="_blank" rel="noopener">CIELAB color space</a></td><td>感知均匀色彩空间</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Convolutional_neural_network" target="_blank" rel="noopener">Convolutional neural network</a></td><td>局部连接、权值共享与层次特征</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Backpropagation" target="_blank" rel="noopener">Backpropagation</a></td><td>链式法则与自动微分</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Overfitting" target="_blank" rel="noopener">Overfitting</a></td><td>泛化误差与正则化</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Transfer_learning" target="_blank" rel="noopener">Transfer learning</a></td><td>预训练与微调的适用条件</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Data_augmentation" target="_blank" rel="noopener">Data augmentation</a></td><td>标签保持变换与不变性</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Generative_adversarial_network" target="_blank" rel="noopener">Generative adversarial network</a></td><td>生成器/判别器的极小极大博弈</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Variational_autoencoder" target="_blank" rel="noopener">Variational autoencoder</a></td><td>重参数化与 ELBO</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Diffusion_model" target="_blank" rel="noopener">Diffusion model</a></td><td>前向加噪与反向去噪</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Transformer_(deep_learning_architecture)" target="_blank" rel="noopener">Transformer (deep learning)</a></td><td>自注意力与位置编码</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Vision_transformer" target="_blank" rel="noopener">Vision transformer</a></td><td>图像分块作为 token</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Object_detection" target="_blank" rel="noopener">Object detection</a></td><td>检测任务的术语与评测</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Image_segmentation" target="_blank" rel="noopener">Image segmentation</a></td><td>语义/实例/全景分割的区别</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Super-resolution_imaging" target="_blank" rel="noopener">Super-resolution imaging</a></td><td>超分辨率的病态逆问题本质</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Jaccard_index" target="_blank" rel="noopener">Jaccard index</a></td><td>IoU 的定义与阈值曲线</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/Receiver_operating_characteristic" target="_blank" rel="noopener">Receiver operating characteristic</a></td><td>ROC / AUC 与阈值选择</td></tr>
+</tbody></table>
+<h3>数据集（6）</h3>
+<table><thead><tr><th style="width:26%">名称</th><th>说明</th></tr></thead><tbody>
+<tr><td><a href="https://www.image-net.org/" target="_blank" rel="noopener">ImageNet</a></td><td>分类与预训练的标准大数据集</td></tr>
+<tr><td><a href="https://cocodataset.org/" target="_blank" rel="noopener">MS COCO</a></td><td>检测 / 实例分割 / 关键点标准评测集</td></tr>
+<tr><td><a href="http://host.robots.ox.ac.uk/pascal/VOC/" target="_blank" rel="noopener">PASCAL VOC</a></td><td>经典检测与分割小数据集，适合课程实验</td></tr>
+<tr><td><a href="https://www.cityscapes-dataset.com/" target="_blank" rel="noopener">Cityscapes</a></td><td>街景语义分割与实例分割</td></tr>
+<tr><td><a href="https://groups.csail.mit.edu/vision/datasets/ADE20K/" target="_blank" rel="noopener">ADE20K</a></td><td>场景解析与语义分割</td></tr>
+<tr><td><a href="https://en.wikipedia.org/wiki/MNIST_database" target="_blank" rel="noopener">MNIST database</a></td><td>入门分类数据集的背景与基准结果</td></tr>
+</tbody></table>
+<h3>框架（8）</h3>
+<table><thead><tr><th style="width:26%">名称</th><th>说明</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/kornia/kornia" target="_blank" rel="noopener">Kornia</a></td><td>可微分的传统 CV 算子库，把上卷算子接进下卷网络的桥梁</td></tr>
+<tr><td><a href="https://github.com/scikit-learn/scikit-learn" target="_blank" rel="noopener">scikit-learn</a></td><td>传统机器学习基线（SVM、k-means、随机森林）的标准实现</td></tr>
+<tr><td><a href="https://github.com/pytorch/pytorch" target="_blank" rel="noopener">PyTorch</a></td><td>主流深度学习框架</td></tr>
+<tr><td><a href="https://github.com/pytorch/vision" target="_blank" rel="noopener">torchvision</a></td><td>官方分类/检测/分割模型与数据集变换</td></tr>
+<tr><td><a href="https://github.com/tensorflow/tensorflow" target="_blank" rel="noopener">TensorFlow</a></td><td>另一主流框架，含完整部署链路</td></tr>
+<tr><td><a href="https://github.com/keras-team/keras" target="_blank" rel="noopener">Keras</a></td><td>高层 API，适合快速搭基线</td></tr>
+<tr><td><a href="https://github.com/huggingface/transformers" target="_blank" rel="noopener">Hugging Face Transformers</a></td><td>ViT、CLIP、多模态模型的统一接口</td></tr>
+<tr><td><a href="https://github.com/albumentations-team/albumentations" target="_blank" rel="noopener">Albumentations</a></td><td>高性能数据增强，支持框/掩码同步变换</td></tr>
+</tbody></table>
+<h3>分类（13）</h3>
+<table><thead><tr><th style="width:26%">名称</th><th>说明</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/huggingface/pytorch-image-models" target="_blank" rel="noopener">pytorch-image-models (timm)</a></td><td>数百个预训练分类骨干与训练脚本</td></tr>
+<tr><td><a href="https://github.com/open-mmlab/mmpretrain" target="_blank" rel="noopener">MMPreTrain</a></td><td>OpenMMLab 分类与预训练工具箱</td></tr>
+<tr><td><a href="https://github.com/google-research/vision_transformer" target="_blank" rel="noopener">Vision Transformer (Google)</a></td><td>ViT 官方实现与预训练权重</td></tr>
+<tr><td><a href="https://github.com/microsoft/Swin-Transformer" target="_blank" rel="noopener">Swin Transformer</a></td><td>层级化窗口注意力的骨干网络</td></tr>
+<tr><td><a href="https://github.com/facebookresearch/ConvNeXt" target="_blank" rel="noopener">ConvNeXt</a></td><td>用现代训练法改造纯卷积骨干</td></tr>
+<tr><td><a href="https://github.com/KaimingHe/deep-residual-networks" target="_blank" rel="noopener">Deep Residual Networks</a></td><td>ResNet 原始实现</td></tr>
+<tr><td><a href="https://github.com/facebookresearch/mae" target="_blank" rel="noopener">MAE</a></td><td>掩码自编码自监督预训练</td></tr>
+<tr><td><a href="https://github.com/facebookresearch/dinov2" target="_blank" rel="noopener">DINOv2</a></td><td>无需标注的通用视觉特征</td></tr>
+<tr><td><a href="https://github.com/openai/CLIP" target="_blank" rel="noopener">CLIP</a></td><td>图文对比预训练与零样本分类</td></tr>
+<tr><td><a href="https://github.com/mlfoundations/open_clip" target="_blank" rel="noopener">OpenCLIP</a></td><td>CLIP 的开源复现与更大规模权重</td></tr>
+<tr><td><a href="https://github.com/haotian-liu/LLaVA" target="_blank" rel="noopener">LLaVA</a></td><td>视觉语言对话模型，读图问答</td></tr>
+<tr><td><a href="https://github.com/jacobgil/pytorch-grad-cam" target="_blank" rel="noopener">pytorch-grad-cam</a></td><td>Grad-CAM 等热力图方法的统一实现</td></tr>
+<tr><td><a href="https://github.com/pytorch/captum" target="_blank" rel="noopener">Captum</a></td><td>PyTorch 官方模型可解释性库</td></tr>
+</tbody></table>
+<h3>检测（6）</h3>
+<table><thead><tr><th style="width:26%">名称</th><th>说明</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/open-mmlab/mmdetection" target="_blank" rel="noopener">MMDetection</a></td><td>检测算法全家桶与配置文件化实验</td></tr>
+<tr><td><a href="https://github.com/facebookresearch/detectron2" target="_blank" rel="noopener">Detectron2</a></td><td>FAIR 的检测/实例分割框架</td></tr>
+<tr><td><a href="https://github.com/ultralytics/ultralytics" target="_blank" rel="noopener">Ultralytics YOLO</a></td><td>YOLOv8/11 官方工程，一行命令训练与推理</td></tr>
+<tr><td><a href="https://github.com/ultralytics/yolov5" target="_blank" rel="noopener">YOLOv5</a></td><td>工程化程度极高的单阶段检测器</td></tr>
+<tr><td><a href="https://github.com/facebookresearch/detr" target="_blank" rel="noopener">DETR</a></td><td>用 Transformer + 集合预测做检测</td></tr>
+<tr><td><a href="https://github.com/IDEA-Research/GroundingDINO" target="_blank" rel="noopener">GroundingDINO</a></td><td>开放词表检测，文本提示直接出框</td></tr>
+</tbody></table>
+<h3>分割（7）</h3>
+<table><thead><tr><th style="width:26%">名称</th><th>说明</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/open-mmlab/mmsegmentation" target="_blank" rel="noopener">MMSegmentation</a></td><td>语义分割算法全家桶</td></tr>
+<tr><td><a href="https://github.com/shelhamer/fcn.berkeleyvision.org" target="_blank" rel="noopener">FCN (Berkeley)</a></td><td>全卷积网络原始实现</td></tr>
+<tr><td><a href="https://github.com/milesial/Pytorch-UNet" target="_blank" rel="noopener">Pytorch-UNet</a></td><td>U-Net 的简洁可读实现</td></tr>
+<tr><td><a href="https://github.com/facebookresearch/Mask2Former" target="_blank" rel="noopener">Mask2Former</a></td><td>统一三类分割的掩码分类架构</td></tr>
+<tr><td><a href="https://github.com/facebookresearch/segment-anything" target="_blank" rel="noopener">Segment Anything (SAM)</a></td><td>可提示分割基础模型</td></tr>
+<tr><td><a href="https://github.com/facebookresearch/sam2" target="_blank" rel="noopener">SAM 2</a></td><td>图像与视频统一的可提示分割</td></tr>
+<tr><td><a href="https://github.com/Project-MONAI/MONAI" target="_blank" rel="noopener">MONAI</a></td><td>医学影像分割与复原的官方框架</td></tr>
+</tbody></table>
+<h3>复原（3）</h3>
+<table><thead><tr><th style="width:26%">名称</th><th>说明</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/cszn/DnCNN" target="_blank" rel="noopener">DnCNN</a></td><td>残差学习去噪的经典工程</td></tr>
+<tr><td><a href="https://github.com/xinntao/ESRGAN" target="_blank" rel="noopener">ESRGAN</a></td><td>感知损失驱动的超分辨率</td></tr>
+<tr><td><a href="https://github.com/xinntao/Real-ESRGAN" target="_blank" rel="noopener">Real-ESRGAN</a></td><td>面向真实退化图像的盲超分</td></tr>
+</tbody></table>
+<h3>生成（6）</h3>
+<table><thead><tr><th style="width:26%">名称</th><th>说明</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/huggingface/diffusers" target="_blank" rel="noopener">Hugging Face Diffusers</a></td><td>扩散模型推理与训练管线</td></tr>
+<tr><td><a href="https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix" target="_blank" rel="noopener">pix2pix / CycleGAN</a></td><td>配对与非配对图像翻译的官方实现</td></tr>
+<tr><td><a href="https://github.com/NVlabs/stylegan3" target="_blank" rel="noopener">StyleGAN3</a></td><td>高质量人脸/图像生成与潜在空间编辑</td></tr>
+<tr><td><a href="https://github.com/hojonathanho/diffusion" target="_blank" rel="noopener">DDPM (官方)</a></td><td>去噪扩散概率模型原始实现</td></tr>
+<tr><td><a href="https://github.com/CompVis/stable-diffusion" target="_blank" rel="noopener">Stable Diffusion</a></td><td>潜空间扩散模型，文生图基线</td></tr>
+<tr><td><a href="https://github.com/CompVis/latent-diffusion" target="_blank" rel="noopener">Latent Diffusion</a></td><td>LDM 训练与条件生成代码</td></tr>
+</tbody></table>
+<h3>评测（2）</h3>
+<table><thead><tr><th style="width:26%">名称</th><th>说明</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/Lightning-AI/torchmetrics" target="_blank" rel="noopener">TorchMetrics</a></td><td>mAP / IoU / Dice / PSNR 等指标的可靠实现</td></tr>
+<tr><td><a href="https://github.com/cocodataset/cocoapi" target="_blank" rel="noopener">COCO API</a></td><td>COCO 标注读取与官方评测</td></tr>
+</tbody></table>
+<h3>标注（2）</h3>
+<table><thead><tr><th style="width:26%">名称</th><th>说明</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/cvat-ai/cvat" target="_blank" rel="noopener">CVAT</a></td><td>开源标注平台，支持框/多边形/关键点</td></tr>
+<tr><td><a href="https://github.com/HumanSignal/label-studio" target="_blank" rel="noopener">Label Studio</a></td><td>通用数据标注与质检工具</td></tr>
+</tbody></table>
+<h3>部署（5）</h3>
+<table><thead><tr><th style="width:26%">名称</th><th>说明</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/onnx/onnx" target="_blank" rel="noopener">ONNX</a></td><td>跨框架模型交换格式</td></tr>
+<tr><td><a href="https://github.com/microsoft/onnxruntime" target="_blank" rel="noopener">ONNX Runtime</a></td><td>跨平台高性能推理引擎</td></tr>
+<tr><td><a href="https://github.com/NVIDIA/TensorRT" target="_blank" rel="noopener">TensorRT</a></td><td>GPU 推理优化与量化</td></tr>
+<tr><td><a href="https://github.com/openvinotoolkit/openvino" target="_blank" rel="noopener">OpenVINO</a></td><td>Intel CPU/GPU 推理优化</td></tr>
+<tr><td><a href="https://github.com/Tencent/ncnn" target="_blank" rel="noopener">ncnn</a></td><td>移动端轻量推理框架</td></tr>
+</tbody></table>
+</section>
+<section id="lab"><h2><span class="sec-num">§</span>Octave 实例</h2>
+<h3>新建实验的最小模板（复制后改参数区与算法段）</h3>
+<pre class="code" data-file="code/A-template.m" data-lang="GNU Octave"><code>%% A-template.m | 本书所有 Octave 示例的模板
+%% GNU Octave，零第三方依赖；合成图像，无需任何外部文件
+clear; close all; clc;
+SHOW = ~strcmp(getenv("IP_HEADLESS"), "1");
+% ---- 参数区：所有可调量集中在这里 ----
+N = 128; sigma = 0.05; randn("seed", 1);
+% ---- 造图 ----
+[X, Y] = meshgrid(1:N, 1:N);
+f = 0.30 + 0.50*double((X-N/2).^2 + (Y-N/2).^2 &lt; (N/5)^2);
+g = min(max(f + sigma*randn(N,N), 0), 1);
+% ---- 算法 ----
+w = ones(3,3)/9;
+out = conv2(g, w, "same");
+% ---- 数值验证：打印可手算核对的量 ----
+printf("尺寸 %d x %d, 均值 %.4f -&gt; %.4f\n", rows(f), columns(f), mean(g(:)), mean(out(:)));
+printf("MSE(加噪) = %.6f, MSE(平滑) = %.6f\n", ...
+       mean((g(:)-f(:)).^2), mean((out(:)-f(:)).^2));
+% ---- 可视化：IP_HEADLESS=1 时自动跳过 ----
+if SHOW
+  figure("name", "模板");
+  subplot(1, 2, 1); imagesc(g, [0 1]); colormap gray; axis image off; title("输入");
+  subplot(1, 2, 2); imagesc(out, [0 1]); axis image off; title("输出");
+end</code></pre>
+<p class="code-hint"><strong>操作：</strong>以此文件为起点新建实验：只改参数区与算法段，保留数值验证与 headless 开关。　<strong>预期与判读：</strong>平滑后均值基本不变（核和为 1）、MSE 下降；设置 &lt;code&gt;IP_HEADLESS=1&lt;/code&gt; 时不弹窗但数值照常打印。　文件位置：<code>appendix/code/A-template.m</code></p>
+<div class="card note"><p style="margin-bottom:0">代码块右上角可一键复制；本仓库 <code>code/*.m</code> 由 <code>tools/extract_code.py</code> 从这些代码块自动抽取，页面与脚本永远一致。脚本只用 Octave 核心函数，设 <code>IP_HEADLESS=1</code> 可跳过绘图。</p></div>
+</section>
+<section id="pitfalls"><h2><span class="sec-num">§</span>常见误区</h2><div class="card warn"><ul><li>直接编辑 HTML 而不改数据源：下次 &lt;code&gt;--force&lt;/code&gt; 重建会被覆盖。</li>
+<li>新增示例后忘了运行 &lt;code&gt;extract_code.py&lt;/code&gt;：页面有代码块但磁盘缺少 &lt;code&gt;.m&lt;/code&gt;。</li>
+<li>在示例里引入 image 包专有函数：破坏零依赖约定。</li></ul></div></section>
+<section id="exercises"><h2><span class="sec-num">§</span>习题与思考</h2><ol><li>用 A-template.m 复现第 04 章的高斯平滑实验，并补一行 PSNR 打印。</li>
+<li>按维护约定新增一个章节，说明需要同时改动哪几个文件。</li></ol></section>
+<section id="extra-links"><h2><span class="sec-num">§</span>扩展学习</h2>
+<p>以下资料按本章知识点挑选，可直接精读或对照源码；知识点地图里每一条也挂了 1～2 个直达链接。</p>
+<ul>
+<li><strong>Octave 官方文档</strong>（文档）：函数参考与语言手册，查 conv2/fft2/imagesc 的权威出处<br><a href="https://docs.octave.org/latest/" target="_blank" rel="noopener">Octave 官方文档</a></li>
+<li><strong>scikit-image User Guide</strong>（文档）：按任务组织的传统算法讲解，适合与本书章节互相对照<br><a href="https://scikit-image.org/docs/stable/user_guide/" target="_blank" rel="noopener">scikit-image User Guide</a></li>
+<li><strong>OpenCV Tutorials</strong>（文档）：官方教程，含滤波、形态学、特征与几何变换的示例<br><a href="https://docs.opencv.org/master/d6/d00/tutorial_py_root.html" target="_blank" rel="noopener">OpenCV Tutorials</a></li>
+<li><strong>Stanford CS231n</strong>（课程）：经典视觉课程笔记，下卷最好的免费配套教材<br><a href="https://cs231n.github.io/" target="_blank" rel="noopener">Stanford CS231n</a></li>
+<li><strong>动手学深度学习 d2l.ai</strong>（课程）：含可运行代码的深度学习教材，中文版可用<br><a href="https://d2l.ai/" target="_blank" rel="noopener">动手学深度学习 d2l.ai</a></li>
+</ul>
+<p class="code-hint">继续扩展：<a href="https://github.com/search?q=image%20processing%20algorithms%20cheat%20sheet&amp;type=repositories" target="_blank" rel="noopener">在 GitHub 检索本章相关开源工程</a> · <a href="https://www.google.com/search?q=image%20processing%20algorithms%20cheat%20sheet" target="_blank" rel="noopener">按本章主题检索资料</a> · <a href="../index.html#resources">全书参考资源总表</a> · <a href="../appendix/index.html">附录 A 速查与链接总表</a></p>
+</section>
+<section id="further"><h2><span class="sec-num">§</span>延伸阅读与内链</h2><ul><li><a href='../index.html'>返回总目录</a></li>
+<li><a href='../index.html#resources'>全书参考资源总表</a></li>
+<li><a href='../part0/01-octave-setup/index.html'>第 1 章 Octave 环境与代码契约</a></li></ul></section>
+<footer class="pager" data-autofill></footer>
+<footer class="site-foot">
+<p class="credits"><strong>作者</strong>：汪亮（bertonwang）　<strong>联系邮箱</strong>：<a href="mailto:47608843@qq.com">47608843@qq.com</a></p>
+<p class="ai-note"><strong>AI 使用说明</strong>：本教材的知识框架、正文、Octave 示例代码与开源工程清单在 AI 辅助下整理生成，并经人工校订与静态自检。公式、数值与运行结果请以GNU Octave 实际输出及权威教材、官方文档为准；发现错漏欢迎通过上方邮箱勘误。</p>
+<p class="imprint">数字图像处理：从经典算法到智能方法 · 上卷每章一个 <code>code/*.m</code> Octave 脚本（由 <code>tools/extract_code.py</code> 从 HTML 同步） · 下卷给出官方开源工程链接 · GNU Octave 为自由软件，本书与之无从属关系。</p>
+</footer>
+</main>
+</body>
+</html>

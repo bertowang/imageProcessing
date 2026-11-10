@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第 17 章 · 神经网络与 CNN 基础 | 数字图像处理：从经典算法到智能方法</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script src="../../assets/toc.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</head>
+<body data-root="../../" data-chapter="17">
+<aside id="sidebar"></aside>
+<main class="book-page">
+<nav class="breadcrumb" data-autofill>总目录</nav>
+<header class="chapter-head">
+<span class="kicker">第三篇 · 从特征到深度网络</span>
+<h1><span class="ch-num">第 17 章</span>神经网络与 CNN 基础</h1>
+<p class="lede">卷积层只是带权值共享的线性层；真正让深度网络可训练的是反向传播、归一化与一整套训练配方。</p>
+<div class="meta">
+<span class="badge done">已完稿</span>
+<span>建议 4 学时</span>
+<span>6 个开源工程</span>
+<span class="badge lower">下卷 · AI 算法</span>
+<span>数字图像处理：从经典算法到智能方法</span>
+</div></header>
+<div class="card objectives"><span class="card-label">学习目标</span><ul>
+<li>能写出卷积层输出尺寸与参数量公式</li>
+<li>能解释局部连接、权值共享与感受野的递进关系</li>
+<li>能说清反向传播、损失函数与优化器各自的角色</li>
+<li>能列出一个最小训练循环必备的六个步骤</li>
+</ul></div>
+<section id="map"><h2><span class="sec-num">§</span>知识点地图</h2>
+<p class="code-hint">每个知识点都配了 1～2 个扩展学习链接；本章完整资源清单见 <a href="#extra-links">扩展学习</a>。</p>
+<table><thead><tr><th style="width:44px">#</th><th style="width:26%">知识点</th><th>扩展学习</th><th style="width:100px">状态</th></tr></thead><tbody>
+<tr><td>1</td><td>神经元与激活函数</td><td><a href="https://en.wikipedia.org/wiki/Convolutional_neural_network" target="_blank" rel="noopener">Convolutional neural network</a> · <a href="https://d2l.ai/" target="_blank" rel="noopener">动手学深度学习 d2l.ai</a></td><td>正文已覆盖</td></tr>
+<tr><td>2</td><td>卷积层与感受野</td><td><a href="https://en.wikipedia.org/wiki/Convolution" target="_blank" rel="noopener">Convolution</a> · <a href="https://en.wikipedia.org/wiki/Kernel_(image_processing)" target="_blank" rel="noopener">Kernel (image processing)</a></td><td>正文已覆盖</td></tr>
+<tr><td>3</td><td>池化与下采样</td><td><a href="https://en.wikipedia.org/wiki/Convolutional_neural_network" target="_blank" rel="noopener">Convolutional neural network</a> · <a href="https://d2l.ai/" target="_blank" rel="noopener">动手学深度学习 d2l.ai</a></td><td>正文已覆盖</td></tr>
+<tr><td>4</td><td>反向传播与自动微分</td><td><a href="https://en.wikipedia.org/wiki/Backpropagation" target="_blank" rel="noopener">Backpropagation</a> · <a href="https://d2l.ai/" target="_blank" rel="noopener">动手学深度学习 d2l.ai</a></td><td>正文已覆盖</td></tr>
+<tr><td>5</td><td>损失函数与优化器</td><td><a href="https://d2l.ai/" target="_blank" rel="noopener">动手学深度学习 d2l.ai</a> · <a href="https://pytorch.org/tutorials/" target="_blank" rel="noopener">PyTorch Tutorials</a></td><td>正文已覆盖</td></tr>
+<tr><td>6</td><td>批归一化与 Dropout</td><td><a href="https://d2l.ai/" target="_blank" rel="noopener">动手学深度学习 d2l.ai</a> · <a href="https://cs231n.github.io/" target="_blank" rel="noopener">Stanford CS231n</a></td><td>正文已覆盖</td></tr>
+<tr><td>7</td><td>数据增强与正则</td><td><a href="https://en.wikipedia.org/wiki/Overfitting" target="_blank" rel="noopener">Overfitting</a> · <a href="https://d2l.ai/" target="_blank" rel="noopener">动手学深度学习 d2l.ai</a></td><td>正文已覆盖</td></tr>
+</tbody></table></section>
+<section id="s17-1"><h2><span class="sec-num">§17.1</span>卷积层：把全连接变成局部共享</h2>
+<p>一个 <code>M×N</code> 图像若接全连接层，参数量是 <code>M·N·C</code>；卷积层改用 <code>K×K</code> 的小核在整幅图上滑动，参数量只有 <code>K²·C_in·C_out</code>，与图像尺寸无关。三个归纳偏置：<strong>局部性</strong>（像素主要与邻域相关）、<strong>平移等变性</strong>（同一核扫全图）、<strong>层次组合</strong>（边缘 → 纹理 → 部件 → 物体）。</p>
+<span class="eq">H_out = ⌊(H_in + 2P − D(K−1) − 1)/S + 1⌋，　参数量 = K²·C_in·C_out + C_out</span>
+<p>其中 P 是填充、S 是步长、D 是空洞率。第一层学到的常是<strong>类似 Gabor / Sobel 的定向边缘滤波器</strong>——第 10 章手工设计的核，被数据自动学了出来；<a href="../../part1/04-spatial-filter/index.html">第 4 章</a>与 <code>Kornia</code> 库可以把这两者放在同一段代码里对照。</p>
+</section>
+<section id="s17-2"><h2><span class="sec-num">§17.2</span>训练：损失、反向传播与优化器</h2>
+<ol><li>前向计算得到预测 <code>ŷ</code>；</li>
+<li>算损失（分类用交叉熵、回归用 L1/L2、检测用分类+框回归的组合）；</li>
+<li><code>loss.backward()</code> 用链式法则回传梯度（自动微分）；</li>
+<li>优化器更新参数（SGD+momentum 或 AdamW）；</li>
+<li><code>zero_grad</code> → 下一步；重复直到收敛。</li></ol>
+<p><strong>批归一化</strong>让每层输入分布稳定，从而允许更大学习率；<strong>Dropout</strong>随机失活抑制共适应；<strong>权重初始化</strong>与<strong>残差连接</strong>（第 18 章）共同解决深层梯度消失。注意 BN 在训练与推理时用不同统计量，<code>model.eval()</code> 忘了调是线上结果异常的常见原因。</p>
+</section>
+<section id="s17-3"><h2><span class="sec-num">§17.3</span>数据增强与正则</h2>
+<p>增强是<strong>标签保持变换</strong>：随机裁剪、翻转、旋转、颜色抖动、MixUp/CutMix。它们把上卷的几何变换（第 07 章）、彩色变换（第 08 章）、滤波（第 04 章）变成了可微流水线里的随机层。关键约束是<strong>框、掩模、关键点必须与图像同步变换</strong>，否则标注错位；<code>Albumentations</code> 就是为此设计的。</p>
+<div class="card warn"><p style="margin-bottom:0">增强不是越多越好：医学影像里的左右翻转可能改变标签语义，字符识别里的旋转会把 6 变成 9。先验写错了，数据再多也学不回来。</p></div>
+</section>
+<section id="repos"><h2><span class="sec-num">§</span>开源工程与实现链接</h2>
+<p>本章原理对应的官方 / 开源实现。建议先跑通最小复现命令，再按「推荐用法」改动一个变量做对照实验。</p>
+<div class="card tip"><p style="margin-bottom:0">最小复现路径：先跑官方 MNIST 训练教程，再把网络第一层卷积核可视化，与上卷 Sobel 核对比。</p></div>
+<div class="repo-grid">
+<div class="repo-card">
+<h3><a href="https://github.com/pytorch/pytorch" target="_blank" rel="noopener">PyTorch</a></h3>
+<span class="tag">框架 · 官方/开源实现</span>
+<p>主流深度学习框架</p>
+<span class="why"><strong>怎么用</strong>：框架本体；&lt;code&gt;autograd&lt;/code&gt; 是理解反向传播最直接的参考实现</span>
+<p style="margin:0"><code>https://github.com/pytorch/pytorch</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://pytorch.org/tutorials/" target="_blank" rel="noopener">PyTorch Tutorials</a></h3>
+<span class="tag">文档 · 官方/开源实现</span>
+<p>官方训练循环、迁移学习与部署示例</p>
+<span class="why"><strong>怎么用</strong>：官方 60 分钟入门与训练循环示例，照抄一遍即可跑通本章六步</span>
+<p style="margin:0"><code>https://pytorch.org/tutorials/</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://d2l.ai/" target="_blank" rel="noopener">动手学深度学习 d2l.ai</a></h3>
+<span class="tag">课程 · 官方/开源实现</span>
+<p>含可运行代码的深度学习教材，中文版可用</p>
+<span class="why"><strong>怎么用</strong>：从零实现卷积、BN、优化器的可运行代码，适合逐行对照公式</span>
+<p style="margin:0"><code>https://d2l.ai/</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://cs231n.github.io/" target="_blank" rel="noopener">Stanford CS231n</a></h3>
+<span class="tag">课程 · 官方/开源实现</span>
+<p>经典视觉课程笔记，下卷最好的免费配套教材</p>
+<span class="why"><strong>怎么用</strong>：反向传播、卷积可视化与训练技巧的经典讲义</span>
+<p style="margin:0"><code>https://cs231n.github.io/</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/kornia/kornia" target="_blank" rel="noopener">Kornia</a></h3>
+<span class="tag">框架 · 官方/开源实现</span>
+<p>可微分的传统 CV 算子库，把上卷算子接进下卷网络的桥梁</p>
+<span class="why"><strong>怎么用</strong>：可微分传统 CV 算子：把第 4～10 章的算子接进网络</span>
+<p style="margin:0"><code>https://github.com/kornia/kornia</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/albumentations-team/albumentations" target="_blank" rel="noopener">Albumentations</a></h3>
+<span class="tag">框架 · 官方/开源实现</span>
+<p>高性能数据增强，支持框/掩码同步变换</p>
+<span class="why"><strong>怎么用</strong>：图像/框/掩模同步增强，避免几何增强造成标注错位</span>
+<p style="margin:0"><code>https://github.com/albumentations-team/albumentations</code></p>
+</div>
+</div>
+<p class="code-hint">使用约定：以下仓库均为各自维护者的项目，本书与之无从属关系；请阅读其 README 与许可证后再用于课程或生产环境。更多资源见 <a href="#extra-links">扩展学习</a> 与 <a href="../../appendix/index.html">附录 A.3 开源工程总表</a>。</p>
+</section>
+<section id="pitfalls"><h2><span class="sec-num">§</span>常见误区</h2><div class="card warn"><ul><li>把 &lt;code&gt;model.eval()&lt;/code&gt; 忘在推理路径上：BN/Dropout 仍用训练行为，结果不稳定。</li>
+<li>增强只作用于图像不同步标注：检测框与分割掩模全部错位。</li>
+<li>认为更大的学习率总是更快收敛：批归一化也救不了发散的初始阶段。</li>
+<li>把测试集当验证集反复调参：等于在测试集上训练。</li></ul></div></section>
+<section id="exercises"><h2><span class="sec-num">§</span>习题与思考</h2><ol><li>推导 &lt;code&gt;3×3&lt;/code&gt; 卷积、&lt;code&gt;stride=1, pad=1&lt;/code&gt; 时的输出尺寸与参数量，并说明为什么参数量与图像分辨率无关。</li>
+<li>列出训练循环六步，标注每一步对应的数学对象（前向/损失/梯度/更新）。</li></ol></section>
+<section id="extra-links"><h2><span class="sec-num">§</span>扩展学习</h2>
+<p>以下资料按本章知识点挑选，可直接精读或对照源码；知识点地图里每一条也挂了 1～2 个直达链接。</p>
+<ul>
+<li><strong>Convolutional neural network</strong>（百科）：局部连接、权值共享与层次特征<br><a href="https://en.wikipedia.org/wiki/Convolutional_neural_network" target="_blank" rel="noopener">Convolutional neural network</a></li>
+<li><strong>Backpropagation</strong>（百科）：链式法则与自动微分<br><a href="https://en.wikipedia.org/wiki/Backpropagation" target="_blank" rel="noopener">Backpropagation</a></li>
+<li><strong>动手学深度学习 d2l.ai</strong>（课程）：含可运行代码的深度学习教材，中文版可用<br><a href="https://d2l.ai/" target="_blank" rel="noopener">动手学深度学习 d2l.ai</a></li>
+<li><strong>PyTorch Tutorials</strong>（文档）：官方训练循环、迁移学习与部署示例<br><a href="https://pytorch.org/tutorials/" target="_blank" rel="noopener">PyTorch Tutorials</a></li>
+<li><strong>Stanford CS231n</strong>（课程）：经典视觉课程笔记，下卷最好的免费配套教材<br><a href="https://cs231n.github.io/" target="_blank" rel="noopener">Stanford CS231n</a></li>
+</ul>
+<p class="code-hint">继续扩展：<a href="https://github.com/search?q=CNN%20from%20scratch%20numpy%20tutorial&amp;type=repositories" target="_blank" rel="noopener">在 GitHub 检索本章相关开源工程</a> · <a href="https://www.google.com/search?q=CNN%20from%20scratch%20numpy%20tutorial" target="_blank" rel="noopener">按本章主题检索资料</a> · <a href="../../index.html#resources">全书参考资源总表</a> · <a href="../../appendix/index.html">附录 A 速查与链接总表</a></p>
+</section>
+<section id="further"><h2><span class="sec-num">§</span>延伸阅读与内链</h2><ul><li><a href='../16-learning-baselines/index.html'>第 16 章 从手工特征到学习</a></li>
+<li><a href='../18-cnn-architectures/index.html'>第 18 章 经典 CNN 架构与迁移学习</a></li>
+<li><a href='../../part1/04-spatial-filter/index.html'>第 4 章 空间域滤波（卷积核的原型）</a></li></ul></section>
+<footer class="pager" data-autofill></footer>
+<footer class="site-foot">
+<p class="credits"><strong>作者</strong>：汪亮（bertonwang）　<strong>联系邮箱</strong>：<a href="mailto:47608843@qq.com">47608843@qq.com</a></p>
+<p class="ai-note"><strong>AI 使用说明</strong>：本教材的知识框架、正文、Octave 示例代码与开源工程清单在 AI 辅助下整理生成，并经人工校订与静态自检。公式、数值与运行结果请以GNU Octave 实际输出及权威教材、官方文档为准；发现错漏欢迎通过上方邮箱勘误。</p>
+<p class="imprint">数字图像处理：从经典算法到智能方法 · 上卷每章一个 <code>code/*.m</code> Octave 脚本（由 <code>tools/extract_code.py</code> 从 HTML 同步） · 下卷给出官方开源工程链接 · GNU Octave 为自由软件，本书与之无从属关系。</p>
+</footer>
+</main>
+</body>
+</html>

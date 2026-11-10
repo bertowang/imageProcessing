@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第 25 章 · 视觉 Transformer 与基础模型 | 数字图像处理：从经典算法到智能方法</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script src="../../assets/toc.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</head>
+<body data-root="../../" data-chapter="25">
+<aside id="sidebar"></aside>
+<main class="book-page">
+<nav class="breadcrumb" data-autofill>总目录</nav>
+<header class="chapter-head">
+<span class="kicker">第四篇 · 视觉任务与工程落地</span>
+<h1><span class="ch-num">第 25 章</span>视觉 Transformer 与基础模型</h1>
+<p class="lede">把卷积的归纳偏置换成注意力 + 大规模预训练：模型更通用，也更依赖数据与算力。</p>
+<div class="meta">
+<span class="badge done">已完稿</span>
+<span>建议 4 学时</span>
+<span>9 个开源工程</span>
+<span class="badge lower">下卷 · AI 算法</span>
+<span>数字图像处理：从经典算法到智能方法</span>
+</div></header>
+<div class="card objectives"><span class="card-label">学习目标</span><ul>
+<li>能写出 ViT 的 patch embedding 与自注意力计算形式</li>
+<li>能对比 CNN 与 ViT 的归纳偏置及数据需求</li>
+<li>说清 MAE / DINOv2 / CLIP 三类预训练目标</li>
+<li>能列出基础模型迁移的三种低成本方式</li>
+</ul></div>
+<section id="map"><h2><span class="sec-num">§</span>知识点地图</h2>
+<p class="code-hint">每个知识点都配了 1～2 个扩展学习链接；本章完整资源清单见 <a href="#extra-links">扩展学习</a>。</p>
+<table><thead><tr><th style="width:44px">#</th><th style="width:26%">知识点</th><th>扩展学习</th><th style="width:100px">状态</th></tr></thead><tbody>
+<tr><td>1</td><td>patch embedding</td><td><a href="https://github.com/google-research/vision_transformer" target="_blank" rel="noopener">Vision Transformer (Google)</a> · <a href="https://github.com/microsoft/Swin-Transformer" target="_blank" rel="noopener">Swin Transformer</a></td><td>正文已覆盖</td></tr>
+<tr><td>2</td><td>自注意力与复杂度</td><td><a href="https://en.wikipedia.org/wiki/Transformer_(deep_learning_architecture)" target="_blank" rel="noopener">Transformer (deep learning)</a> · <a href="https://en.wikipedia.org/wiki/Vision_transformer" target="_blank" rel="noopener">Vision transformer</a></td><td>正文已覆盖</td></tr>
+<tr><td>3</td><td>位置编码</td><td><a href="https://github.com/google-research/vision_transformer" target="_blank" rel="noopener">Vision Transformer (Google)</a> · <a href="https://github.com/microsoft/Swin-Transformer" target="_blank" rel="noopener">Swin Transformer</a></td><td>正文已覆盖</td></tr>
+<tr><td>4</td><td>ViT vs CNN 归纳偏置</td><td><a href="https://github.com/google-research/vision_transformer" target="_blank" rel="noopener">Vision Transformer (Google)</a> · <a href="https://en.wikipedia.org/wiki/Vision_transformer" target="_blank" rel="noopener">Vision transformer</a></td><td>正文已覆盖</td></tr>
+<tr><td>5</td><td>Swin 层级化窗口注意力</td><td><a href="https://github.com/microsoft/Swin-Transformer" target="_blank" rel="noopener">Swin Transformer</a> · <a href="https://en.wikipedia.org/wiki/Transformer_(deep_learning_architecture)" target="_blank" rel="noopener">Transformer (deep learning)</a></td><td>正文已覆盖</td></tr>
+<tr><td>6</td><td>MAE / DINOv2 自监督</td><td><a href="https://github.com/facebookresearch/mae" target="_blank" rel="noopener">MAE</a> · <a href="https://github.com/facebookresearch/dinov2" target="_blank" rel="noopener">DINOv2</a></td><td>正文已覆盖</td></tr>
+<tr><td>7</td><td>CLIP 图文对比</td><td><a href="https://github.com/openai/CLIP" target="_blank" rel="noopener">CLIP</a> · <a href="https://github.com/mlfoundations/open_clip" target="_blank" rel="noopener">OpenCLIP</a></td><td>正文已覆盖</td></tr>
+<tr><td>8</td><td>Prompt / Adapter / LoRA</td><td><a href="https://github.com/google-research/vision_transformer" target="_blank" rel="noopener">Vision Transformer (Google)</a> · <a href="https://github.com/microsoft/Swin-Transformer" target="_blank" rel="noopener">Swin Transformer</a></td><td>正文已覆盖</td></tr>
+</tbody></table></section>
+<section id="s25-1"><h2><span class="sec-num">§25.1</span>ViT：把图像当词序列</h2>
+<p>把图像切成固定大小 patch（如 16×16），每个 patch 线性投影成一个 token，加上位置编码与类别 token，送入标准 Transformer 编码器：</p>
+<span class="eq">Attention(Q,K,V) = softmax(QKᵀ/√d) · V，　token 数 = (H/P)·(W/P)</span>
+<p>自注意力是<strong>全局、内容自适应</strong>的：任意两个 patch 一步就能交互；代价是复杂度随 token 数平方增长（高分辨率图很贵），且<strong>缺少 CNN 的局部性与平移等变性</strong>这些先验，需要更大规模数据才能学到同等表示。</p>
+</section>
+<section id="s25-2"><h2><span class="sec-num">§25.2</span>效率与自监督</h2>
+<ul><li><strong>Swin</strong>：在局部窗口内做注意力，用移位窗口跨窗口交互，得到层级化多尺度特征，可直接接检测/分割头。</li>
+<li><strong>MAE</strong>：随机遮住大部分 patch，让模型重建被遮内容，用<strong>重建目标</strong>学表示。</li>
+<li><strong>DINOv2</strong>：自蒸馏式的自监督，产出无需微调就很好用的<strong>通用冻结特征</strong>，适合迁移到专业域（第 18 章）。</li></ul>
+<p>自监督的意义在于：标注昂贵而无标注图像海量。它把“先预训练再迁移”从 ImageNet 标签中解放出来。</p>
+</section>
+<section id="s25-3"><h2><span class="sec-num">§25.3</span>图文对齐与基础模型</h2>
+<p><strong>CLIP</strong> 用对比学习把图像编码器与文本编码器对齐到同一空间，于是分类可以写成“图像与哪个文本提示最相似”，得到<strong>零样本分类</strong>与开放词表能力（第 21 章的 GroundingDINO 就建立在这类对齐之上）。<strong>视觉语言模型</strong>（LLaVA 等）进一步把视觉 token 接进大语言模型，实现读图问答与推理。</p>
+<table><thead><tr><th>迁移方式</th><th>改什么</th><th>成本</th></tr></thead><tbody>
+<tr><td>提示工程</td><td>只改文本提示 / 示例</td><td>最低，先做这个</td></tr>
+<tr><td>Adapter / 线性探针</td><td>冻结骨干，训练小模块</td><td>低，适合小样本</td></tr>
+<tr><td>LoRA / 部分微调</td><td>低秩增量或后几层</td><td>中，适合领域适配</td></tr>
+</tbody></table>
+</section>
+<section id="repos"><h2><span class="sec-num">§</span>开源工程与实现链接</h2>
+<p>本章原理对应的官方 / 开源实现。建议先跑通最小复现命令，再按「推荐用法」改动一个变量做对照实验。</p>
+<div class="card tip"><p style="margin-bottom:0">建议实验：同一批图像分别用 ResNet 与 DINOv2 提特征做 kNN 分类，直观比较冻结特征质量。</p></div>
+<div class="repo-grid">
+<div class="repo-card">
+<h3><a href="https://github.com/google-research/vision_transformer" target="_blank" rel="noopener">Vision Transformer (Google)</a></h3>
+<span class="tag">分类 · 官方/开源实现</span>
+<p>ViT 官方实现与预训练权重</p>
+<span class="why"><strong>怎么用</strong>：Google 官方 ViT 实现与预训练权重</span>
+<p style="margin:0"><code>https://github.com/google-research/vision_transformer</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/microsoft/Swin-Transformer" target="_blank" rel="noopener">Swin Transformer</a></h3>
+<span class="tag">分类 · 官方/开源实现</span>
+<p>层级化窗口注意力的骨干网络</p>
+<span class="why"><strong>怎么用</strong>：Swin Transformer 官方实现，含检测/分割下游配置</span>
+<p style="margin:0"><code>https://github.com/microsoft/Swin-Transformer</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/facebookresearch/mae" target="_blank" rel="noopener">MAE</a></h3>
+<span class="tag">分类 · 官方/开源实现</span>
+<p>掩码自编码自监督预训练</p>
+<span class="why"><strong>怎么用</strong>：掩码自编码预训练官方代码，可复现重建式自监督</span>
+<p style="margin:0"><code>https://github.com/facebookresearch/mae</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/facebookresearch/dinov2" target="_blank" rel="noopener">DINOv2</a></h3>
+<span class="tag">分类 · 官方/开源实现</span>
+<p>无需标注的通用视觉特征</p>
+<span class="why"><strong>怎么用</strong>：通用视觉特征，冻结即可用于检索/分割/迁移</span>
+<p style="margin:0"><code>https://github.com/facebookresearch/dinov2</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/openai/CLIP" target="_blank" rel="noopener">CLIP</a></h3>
+<span class="tag">分类 · 官方/开源实现</span>
+<p>图文对比预训练与零样本分类</p>
+<span class="why"><strong>怎么用</strong>：OpenAI 官方 CLIP，零样本分类与图文相似度</span>
+<p style="margin:0"><code>https://github.com/openai/CLIP</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/mlfoundations/open_clip" target="_blank" rel="noopener">OpenCLIP</a></h3>
+<span class="tag">分类 · 官方/开源实现</span>
+<p>CLIP 的开源复现与更大规模权重</p>
+<span class="why"><strong>怎么用</strong>：开源复现与更大规模预训练权重</span>
+<p style="margin:0"><code>https://github.com/mlfoundations/open_clip</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/haotian-liu/LLaVA" target="_blank" rel="noopener">LLaVA</a></h3>
+<span class="tag">分类 · 官方/开源实现</span>
+<p>视觉语言对话模型，读图问答</p>
+<span class="why"><strong>怎么用</strong>：视觉语言对话模型，体验读图问答</span>
+<p style="margin:0"><code>https://github.com/haotian-liu/LLaVA</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/huggingface/transformers" target="_blank" rel="noopener">Hugging Face Transformers</a></h3>
+<span class="tag">框架 · 官方/开源实现</span>
+<p>ViT、CLIP、多模态模型的统一接口</p>
+<span class="why"><strong>怎么用</strong>：统一调用上述模型的接口与权重</span>
+<p style="margin:0"><code>https://github.com/huggingface/transformers</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/facebookresearch/segment-anything" target="_blank" rel="noopener">Segment Anything (SAM)</a></h3>
+<span class="tag">分割 · 官方/开源实现</span>
+<p>可提示分割基础模型</p>
+<span class="why"><strong>怎么用</strong>：可提示分割基础模型，理解“提示即任务定义”的范式</span>
+<p style="margin:0"><code>https://github.com/facebookresearch/segment-anything</code></p>
+</div>
+</div>
+<p class="code-hint">使用约定：以下仓库均为各自维护者的项目，本书与之无从属关系；请阅读其 README 与许可证后再用于课程或生产环境。更多资源见 <a href="#extra-links">扩展学习</a> 与 <a href="../../appendix/index.html">附录 A.3 开源工程总表</a>。</p>
+</section>
+<section id="pitfalls"><h2><span class="sec-num">§</span>常见误区</h2><div class="card warn"><ul><li>把 ViT 直接用于高分辨率密集任务：token 数平方增长会爆显存。</li>
+<li>小数据集从头训 ViT：缺少归纳偏置，通常不如预训练 CNN。</li>
+<li>把 CLIP 零样本分数当校准概率：文本提示措辞会显著影响结果。</li>
+<li>忽略基础模型的训练数据偏差：下游可能放大特定人群/场景的误差。</li></ul></div></section>
+<section id="exercises"><h2><span class="sec-num">§</span>习题与思考</h2><ol><li>计算 &lt;code&gt;224×224&lt;/code&gt; 输入、&lt;code&gt;16×16&lt;/code&gt; patch 的 token 数，并估算自注意力矩阵的元素数。</li>
+<li>比较 MAE 与 DINOv2 的自监督目标，说明为什么二者学出的特征用途不同。</li></ol></section>
+<section id="extra-links"><h2><span class="sec-num">§</span>扩展学习</h2>
+<p>以下资料按本章知识点挑选，可直接精读或对照源码；知识点地图里每一条也挂了 1～2 个直达链接。</p>
+<ul>
+<li><strong>Vision Transformer (Google)</strong>（分类）：ViT 官方实现与预训练权重<br><a href="https://github.com/google-research/vision_transformer" target="_blank" rel="noopener">Vision Transformer (Google)</a></li>
+<li><strong>Swin Transformer</strong>（分类）：层级化窗口注意力的骨干网络<br><a href="https://github.com/microsoft/Swin-Transformer" target="_blank" rel="noopener">Swin Transformer</a></li>
+<li><strong>CLIP</strong>（分类）：图文对比预训练与零样本分类<br><a href="https://github.com/openai/CLIP" target="_blank" rel="noopener">CLIP</a></li>
+<li><strong>DINOv2</strong>（分类）：无需标注的通用视觉特征<br><a href="https://github.com/facebookresearch/dinov2" target="_blank" rel="noopener">DINOv2</a></li>
+<li><strong>LLaVA</strong>（分类）：视觉语言对话模型，读图问答<br><a href="https://github.com/haotian-liu/LLaVA" target="_blank" rel="noopener">LLaVA</a></li>
+</ul>
+<p class="code-hint">继续扩展：<a href="https://github.com/search?q=vision%20transformer%20multimodal%20foundation%20model&amp;type=repositories" target="_blank" rel="noopener">在 GitHub 检索本章相关开源工程</a> · <a href="https://www.google.com/search?q=vision%20transformer%20multimodal%20foundation%20model" target="_blank" rel="noopener">按本章主题检索资料</a> · <a href="../../index.html#resources">全书参考资源总表</a> · <a href="../../appendix/index.html">附录 A 速查与链接总表</a></p>
+</section>
+<section id="further"><h2><span class="sec-num">§</span>延伸阅读与内链</h2><ul><li><a href='../../part3/18-cnn-architectures/index.html'>第 18 章 CNN 骨干与迁移学习</a></li>
+<li><a href='../24-generative-models/index.html'>第 24 章 文生图中的文本编码</a></li>
+<li><a href='../26-projects/index.html'>第 26 章 工程落地与综合项目</a></li></ul></section>
+<footer class="pager" data-autofill></footer>
+<footer class="site-foot">
+<p class="credits"><strong>作者</strong>：汪亮（bertonwang）　<strong>联系邮箱</strong>：<a href="mailto:47608843@qq.com">47608843@qq.com</a></p>
+<p class="ai-note"><strong>AI 使用说明</strong>：本教材的知识框架、正文、Octave 示例代码与开源工程清单在 AI 辅助下整理生成，并经人工校订与静态自检。公式、数值与运行结果请以GNU Octave 实际输出及权威教材、官方文档为准；发现错漏欢迎通过上方邮箱勘误。</p>
+<p class="imprint">数字图像处理：从经典算法到智能方法 · 上卷每章一个 <code>code/*.m</code> Octave 脚本（由 <code>tools/extract_code.py</code> 从 HTML 同步） · 下卷给出官方开源工程链接 · GNU Octave 为自由软件，本书与之无从属关系。</p>
+</footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,14 @@
+# 生成器缓存
+__pycache__/
+*.pyc
+.DS_Store
+
+# Octave 运行产物
+octave-workspace
+octave-core
+*.asv
+*.log
+*.tmp
+
+# 本地生成的验证输出
+verify-out/

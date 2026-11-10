@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第 03 章 · 灰度变换与直方图 | 数字图像处理：从经典算法到智能方法</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script src="../../assets/toc.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</head>
+<body data-root="../../" data-chapter="03">
+<aside id="sidebar"></aside>
+<main class="book-page">
+<nav class="breadcrumb" data-autofill>总目录</nav>
+<header class="chapter-head">
+<span class="kicker">第一篇 · 基础变换与增强</span>
+<h1><span class="ch-num">第 03 章</span>灰度变换与直方图</h1>
+<p class="lede">从点运算到直方图均衡：第一个“能推公式、能看效果、能打印数值”的完整算法。</p>
+<div class="meta">
+<span class="badge done">已完稿</span>
+<span>建议 3 学时</span>
+<span>2 个 Octave 实例</span>
+<span class="badge upper">上卷 · 传统算法</span>
+<span>数字图像处理：从经典算法到智能方法</span>
+</div></header>
+<div class="card objectives"><span class="card-label">学习目标</span><ul>
+<li>能写出四类常用灰度映射并判断各自适用场景</li>
+<li>能从累积分布函数推出直方图均衡化的离散公式</li>
+<li>能自己用循环实现 histeq 并用数值验证均匀性</li>
+<li>说清 CLAHE 解决什么问题、引入什么新参数</li>
+</ul></div>
+<section id="map"><h2><span class="sec-num">§</span>知识点地图</h2>
+<p class="code-hint">每个知识点都配了 1～2 个扩展学习链接；本章完整资源清单见 <a href="#extra-links">扩展学习</a>。</p>
+<table><thead><tr><th style="width:44px">#</th><th style="width:26%">知识点</th><th>扩展学习</th><th style="width:100px">状态</th></tr></thead><tbody>
+<tr><td>1</td><td>点运算与灰度映射</td><td><a href="https://en.wikipedia.org/wiki/Histogram_equalization" target="_blank" rel="noopener">Histogram equalization</a> · <a href="https://en.wikipedia.org/wiki/Adaptive_histogram_equalization" target="_blank" rel="noopener">Adaptive histogram equalization</a></td><td>正文已覆盖</td></tr>
+<tr><td>2</td><td>gamma 校正</td><td><a href="https://en.wikipedia.org/wiki/Gamma_correction" target="_blank" rel="noopener">Gamma correction</a> · <a href="https://en.wikipedia.org/wiki/Histogram_equalization" target="_blank" rel="noopener">Histogram equalization</a></td><td>正文已覆盖</td></tr>
+<tr><td>3</td><td>直方图与 CDF</td><td><a href="https://en.wikipedia.org/wiki/Histogram_equalization" target="_blank" rel="noopener">Histogram equalization</a> · <a href="https://en.wikipedia.org/wiki/Adaptive_histogram_equalization" target="_blank" rel="noopener">Adaptive histogram equalization</a></td><td>正文已覆盖</td></tr>
+<tr><td>4</td><td>直方图均衡化推导</td><td><a href="https://en.wikipedia.org/wiki/Histogram_equalization" target="_blank" rel="noopener">Histogram equalization</a> · <a href="https://scikit-image.org/docs/stable/user_guide/" target="_blank" rel="noopener">scikit-image User Guide</a></td><td>正文已覆盖</td></tr>
+<tr><td>5</td><td>离散实现与均匀性</td><td><a href="https://en.wikipedia.org/wiki/Histogram_equalization" target="_blank" rel="noopener">Histogram equalization</a> · <a href="https://en.wikipedia.org/wiki/Adaptive_histogram_equalization" target="_blank" rel="noopener">Adaptive histogram equalization</a></td><td>正文已覆盖</td></tr>
+<tr><td>6</td><td>CLAHE 与规定化</td><td><a href="https://en.wikipedia.org/wiki/Adaptive_histogram_equalization" target="_blank" rel="noopener">Adaptive histogram equalization</a> · <a href="https://scikit-image.org/docs/stable/user_guide/" target="_blank" rel="noopener">scikit-image User Guide</a></td><td>正文已覆盖</td></tr>
+</tbody></table></section>
+<section id="s3-1"><h2><span class="sec-num">§3.1</span>点运算与四种映射</h2>
+<p>点运算不含邻域：输出像素只由同一位置的输入像素决定，<code>g = T(f)</code>。因此它不改变空间结构，只改变灰度分布，天然可并行、可用查找表（LUT）实现。</p>
+<table><thead><tr><th>映射</th><th>公式</th><th>作用</th></tr></thead><tbody>
+<tr><td>线性/对比度拉伸</td><td><code>g = a·f + b</code></td><td>整体提亮或压暗，注意裁剪</td></tr>
+<tr><td>对数</td><td><code>g = c·log(1+f)</code></td><td>压缩高亮动态范围，显示傅里叶频谱</td></tr>
+<tr><td>幂律 / gamma</td><td><code>g = f^γ</code></td><td>γ&lt;1 提亮暗部，γ&gt;1 压暗；补偿显示器非线性</td></tr>
+<tr><td>分段线性</td><td>折线 T</td><td>只拉伸感兴趣灰度区间、二值化、灰度切片</td></tr>
+</tbody></table>
+<p>工程上注意 <code>T</code> 必须单调（否则灰度次序反转），输出要裁到 <code>[0,1]</code>；对 uint8 图先转 double 再映射。</p>
+</section>
+<section id="s3-2"><h2><span class="sec-num">§3.2</span>直方图均衡化的推导</h2>
+<p>目标：找一个单调变换 <code>s = T(r)</code>，使输出的灰度分布<strong>均匀</strong>。连续情形下，概率密度在变换下满足 <code>p_s(s) = p_r(r)·|dr/ds|</code>；取 <code>s = T(r) = ∫₀ʳ p_r(w)dw</code>，即<strong>累积分布函数（CDF）</strong>，则 <code>ds/dr = p_r(r)</code>，代入得 <code>p_s(s)=1</code>。</p>
+<span class="eq">sₖ = T(rₖ) = Σⱼ₌₀ᵏ p_r(rⱼ) = Σⱼ₌₀ᵏ nⱼ / (MN)</span>
+<p>离散实现只有三步：统计直方图 <code>h</code> → 归一化并求 <code>cumsum</code> 得 LUT → 用 LUT 查表映射每个像素。结果不会严格均匀（灰度级有限、同灰度像素必须一起搬移），但会明显展宽动态范围。</p>
+</section>
+<section id="s3-3"><h2><span class="sec-num">§3.3</span>全局均衡的局限与 CLAHE</h2>
+<p>全局均衡用整幅图的 CDF，会带来三个典型问题：暗区被整体抬亮后噪声被放大、局部细节没有针对性增强、背景占比大时主体反而过曝。</p>
+<p><strong>CLAHE</strong>（限制对比度自适应直方图均衡）的做法是：把图切成小块（如 8×8），每块单独均衡；均衡前把直方图超过 <code>clip_limit</code> 的部分<strong>削峰并均匀再分配</strong>，从而限制噪声放大；最后用双线性插值拼接块边界，消除块效应。新增的两个参数（块数、裁剪限幅）都可在第 12 章的分割任务里用下游指标来调。</p>
+<div class="card tip"><p style="margin-bottom:0"><strong>直方图规定化</strong>是另一个方向的推广：不要求输出均匀，而是要求输出匹配<em>指定</em>的直方图。做法是分别求输入与目标的 CDF，再用 <code>T = CDF_target⁻¹ ∘ CDF_input</code> 建立映射。</p></div>
+</section>
+<section id="lab"><h2><span class="sec-num">§</span>Octave 实例</h2>
+<h3>gamma 与对数映射的数值对照</h3>
+<pre class="code" data-file="code/03-gray-transform.m" data-lang="GNU Octave"><code>%% 03-gray-transform.m | 点运算：线性 / gamma / 对数映射
+%% GNU Octave，零第三方依赖；合成图像，无需任何外部文件
+clear; close all; clc;
+SHOW = ~strcmp(getenv("IP_HEADLESS"), "1");
+% ---- 参数区 ----
+gamma = 0.45; a = 1.2; b = -0.1; N = 256;
+% ---- 造图：偏暗的渐变 + 亮圆盘 ----
+[X, Y] = meshgrid(1:N, 1:N);
+f = 0.05 + 0.35 * (X / N) + 0.45*double((X-170).^2 + (Y-120).^2 &lt; 45^2);
+f = min(max(f, 0), 1);
+% ---- 算法：四种 LUT 映射 ----
+g_lin    = min(max(a*f + b, 0), 1);
+g_gamma  = f .^ gamma;
+g_invgan = f .^ (1/gamma);
+g_log    = log(1 + f) / log(2);
+r = linspace(0, 1, 256);
+lut_gamma = r .^ gamma;
+g_lut = reshape(interp1(r, lut_gamma, f(:)), size(f));   % 用查找表实现同一映射
+% ---- 数值验证 ----
+printf("原图       mean=%.4f std=%.4f\n", mean(f(:)), std(f(:)));
+printf("线性拉伸   mean=%.4f std=%.4f\n", mean(g_lin(:)), std(g_lin(:)));
+printf("gamma=%.2f  mean=%.4f std=%.4f\n", gamma, mean(g_gamma(:)), std(g_gamma(:)));
+printf("gamma&gt;1    mean=%.4f std=%.4f\n", mean(g_invgan(:)), std(g_invgan(:)));
+printf("对数映射   mean=%.4f std=%.4f\n", mean(g_log(:)), std(g_log(:)));
+printf("LUT 与逐像素映射最大差 = %.3e\n", max(abs(g_lut(:)-g_gamma(:))));
+printf("f=0.25 时 gamma 输出 = %.4f (0.25^%.2f)\n", 0.25^gamma, gamma);
+% ---- 可视化 ----
+if SHOW
+  figure("name", "03 灰度映射");
+  subplot(2, 2, 1); imagesc(f, [0 1]); colormap gray; axis image off; title("原图（偏暗）");
+  subplot(2, 2, 2); imagesc(g_gamma, [0 1]); axis image off; title("gamma&lt;1 提亮暗部");
+  subplot(2, 2, 3); imagesc(g_log, [0 1]); axis image off; title("对数压缩");
+  subplot(2, 2, 4); plot(r, r.^gamma, "linewidth", 2); grid on; xlabel("输入 r"); ylabel("T(r)"); title("gamma LUT");
+end</code></pre>
+<p class="code-hint"><strong>操作：</strong>运行后把 &lt;code&gt;gamma&lt;/code&gt; 依次改成 0.25 / 1 / 2.2，记录均值与标准差的变化方向。　<strong>预期与判读：</strong>gamma&amp;lt;1 时均值显著上升、标准差下降（暗部被抬起）；gamma&amp;gt;1 时均值下降；LUT 与直接映射最大差接近 0；f=0.25、γ=0.45 时输出约 0.5359。　文件位置：<code>part1/03-gray-transform/code/03-gray-transform.m</code></p>
+<h3>手写直方图均衡化与均匀性验证</h3>
+<pre class="code" data-file="code/03-histeq.m" data-lang="GNU Octave"><code>%% 03-histeq.m | 直方图均衡化：统计 h -&gt; CDF -&gt; LUT -&gt; 映射
+%% GNU Octave，零第三方依赖；合成图像，无需任何外部文件
+clear; close all; clc;
+SHOW = ~strcmp(getenv("IP_HEADLESS"), "1");
+% ---- 参数区 ----
+bins = 256; N = 256;
+% ---- 造图：窄动态范围的偏暗图 ----
+[X, Y] = meshgrid(1:N, 1:N);
+f = 0.30 + 0.20*(X/N) + 0.12*double((X-120).^2 + (Y-140).^2 &lt; 50^2);
+f = min(max(f, 0), 1);
+% ---- 算法：直方图 -&gt; 归一化 CDF -&gt; 查表 ----
+q = round(f(:) * (bins-1)) + 1;         % 量化到 1..bins
+h = zeros(bins, 1);
+for i = 1:numel(q)
+  h(q(i)) = h(q(i)) + 1;               % 显式统计，便于对照公式
+end
+cdf = cumsum(h) / numel(q);
+g = reshape(cdf(q), size(f));
+% ---- 数值验证 ----
+printf("直方图总和 = %d，像素总数 = %d\n", sum(h), numel(f));
+printf("CDF 末项 = %.6f（应为 1）\n", cdf(end));
+printf("原图 mean=%.4f std=%.4f  均衡后 mean=%.4f std=%.4f\n", ...
+       mean(f(:)), std(f(:)), mean(g(:)), std(g(:)));
+printf("原图占用的灰度级数 = %d / %d\n", sum(h &gt; 0), bins);
+hg = zeros(bins,1); qg = round(g(:)*(bins-1)) + 1;
+for i = 1:numel(qg), hg(qg(i)) = hg(qg(i)) + 1; end
+printf("均衡后占用的灰度级数 = %d / %d\n", sum(hg &gt; 0), bins);
+printf("理想均匀时每级像素数 = %.1f，实测最大级 = %d\n", numel(f)/bins, max(hg));
+% ---- 可视化 ----
+if SHOW
+  figure("name", "03 直方图均衡");
+  subplot(2, 2, 1); imagesc(f, [0 1]); colormap gray; axis image off; title("原图");
+  subplot(2, 2, 2); imagesc(g, [0 1]); axis image off; title("均衡后");
+  subplot(2, 2, 3); bar(h); xlim([0 bins]); title("原直方图");
+  subplot(2, 2, 4); bar(hg); xlim([0 bins]); title("均衡后直方图");
+end</code></pre>
+<p class="code-hint"><strong>操作：</strong>运行脚本，对照“原图占用级数”与“均衡后占用级数”；把 &lt;code&gt;bins&lt;/code&gt; 改成 16 观察离散化变粗。　<strong>预期与判读：</strong>直方图总和等于像素数、CDF 末项为 1；原图只占约 80 个灰度级，均衡后覆盖范围显著变宽、均值趋近 0.5、标准差增大；由于同灰度像素必须成组搬移，直方图不会严格平坦。　文件位置：<code>part1/03-gray-transform/code/03-histeq.m</code></p>
+<div class="card note"><p style="margin-bottom:0">代码块右上角可一键复制；本仓库 <code>code/*.m</code> 由 <code>tools/extract_code.py</code> 从这些代码块自动抽取，页面与脚本永远一致。脚本只用 Octave 核心函数，设 <code>IP_HEADLESS=1</code> 可跳过绘图。</p></div>
+</section>
+<section id="pitfalls"><h2><span class="sec-num">§</span>常见误区</h2><div class="card warn"><ul><li>对 uint8 直接做 &lt;code&gt;f^γ&lt;/code&gt;：指数运算会隐式转 double 但结果仍是 0～255 量纲，必须先归一化。</li>
+<li>以为均衡一定提升对比度：背景占比大时会放大噪声、导致主体过曝。</li>
+<li>把 CDF 当成 PDF 用：映射要用累积分布，不是直方图本身。</li>
+<li>忽略离散化：灰度级越少，均衡后越容易出现条带（banding）。</li></ul></div></section>
+<section id="exercises"><h2><span class="sec-num">§</span>习题与思考</h2><ol><li>推导连续情形下 &lt;code&gt;s=T(r)=∫p_r&lt;/code&gt; 使 &lt;code&gt;p_s(s)=1&lt;/code&gt; 的完整过程，并说明离散情形为何只能近似。</li>
+<li>在 03-histeq.m 里额外打印均衡前后的 10 分位数，解释它们与 CDF 的关系。</li></ol></section>
+<section id="extra-links"><h2><span class="sec-num">§</span>扩展学习</h2>
+<p>以下资料按本章知识点挑选，可直接精读或对照源码；知识点地图里每一条也挂了 1～2 个直达链接。</p>
+<ul>
+<li><strong>Histogram equalization</strong>（百科）：累积分布函数映射的推导<br><a href="https://en.wikipedia.org/wiki/Histogram_equalization" target="_blank" rel="noopener">Histogram equalization</a></li>
+<li><strong>Adaptive histogram equalization</strong>（百科）：CLAHE 与限制对比度的动机<br><a href="https://en.wikipedia.org/wiki/Adaptive_histogram_equalization" target="_blank" rel="noopener">Adaptive histogram equalization</a></li>
+<li><strong>Gamma correction</strong>（百科）：显示非线性与幂律变换<br><a href="https://en.wikipedia.org/wiki/Gamma_correction" target="_blank" rel="noopener">Gamma correction</a></li>
+<li><strong>scikit-image User Guide</strong>（文档）：按任务组织的传统算法讲解，适合与本书章节互相对照<br><a href="https://scikit-image.org/docs/stable/user_guide/" target="_blank" rel="noopener">scikit-image User Guide</a></li>
+</ul>
+<p class="code-hint">继续扩展：<a href="https://github.com/search?q=histogram%20equalization%20Octave&amp;type=repositories" target="_blank" rel="noopener">在 GitHub 检索本章相关开源工程</a> · <a href="https://www.google.com/search?q=histogram%20equalization%20Octave" target="_blank" rel="noopener">按本章主题检索资料</a> · <a href="../../index.html#resources">全书参考资源总表</a> · <a href="../../appendix/index.html">附录 A 速查与链接总表</a></p>
+</section>
+<section id="further"><h2><span class="sec-num">§</span>延伸阅读与内链</h2><ul><li><a href='../04-spatial-filter/index.html'>第 4 章 空间域滤波</a></li>
+<li><a href='../../part2/12-segmentation/index.html'>第 12 章 图像分割（Otsu 也依赖直方图）</a></li>
+<li><a href='../../appendix/index.html'>附录 A.2 传统算法速查表</a></li></ul></section>
+<footer class="pager" data-autofill></footer>
+<footer class="site-foot">
+<p class="credits"><strong>作者</strong>：汪亮（bertonwang）　<strong>联系邮箱</strong>：<a href="mailto:47608843@qq.com">47608843@qq.com</a></p>
+<p class="ai-note"><strong>AI 使用说明</strong>：本教材的知识框架、正文、Octave 示例代码与开源工程清单在 AI 辅助下整理生成，并经人工校订与静态自检。公式、数值与运行结果请以GNU Octave 实际输出及权威教材、官方文档为准；发现错漏欢迎通过上方邮箱勘误。</p>
+<p class="imprint">数字图像处理：从经典算法到智能方法 · 上卷每章一个 <code>code/*.m</code> Octave 脚本（由 <code>tools/extract_code.py</code> 从 HTML 同步） · 下卷给出官方开源工程链接 · GNU Octave 为自由软件，本书与之无从属关系。</p>
+</footer>
+</main>
+</body>
+</html>

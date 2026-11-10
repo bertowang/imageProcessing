@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第 06 章 · 图像复原与去噪 | 数字图像处理：从经典算法到智能方法</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script src="../../assets/toc.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</head>
+<body data-root="../../" data-chapter="06">
+<aside id="sidebar"></aside>
+<main class="book-page">
+<nav class="breadcrumb" data-autofill>总目录</nav>
+<header class="chapter-head">
+<span class="kicker">第一篇 · 基础变换与增强</span>
+<h1><span class="ch-num">第 06 章</span>图像复原与去噪</h1>
+<p class="lede">先把退化写成公式，再谈复原：逆滤波为什么会炸、维纳滤波加的那一项到底在压制什么。</p>
+<div class="meta">
+<span class="badge done">已完稿</span>
+<span>建议 4 学时</span>
+<span>1 个 Octave 实例</span>
+<span class="badge upper">上卷 · 传统算法</span>
+<span>数字图像处理：从经典算法到智能方法</span>
+</div></header>
+<div class="card objectives"><span class="card-label">学习目标</span><ul>
+<li>能写出线性退化模型并指出病态性的来源</li>
+<li>能区分四类常见噪声及其对应滤波器</li>
+<li>会推导维纳滤波公式并解释参数 K 的作用</li>
+<li>能用 PSNR 与视觉结果共同判断复原是否真的变好</li>
+</ul></div>
+<section id="map"><h2><span class="sec-num">§</span>知识点地图</h2>
+<p class="code-hint">每个知识点都配了 1～2 个扩展学习链接；本章完整资源清单见 <a href="#extra-links">扩展学习</a>。</p>
+<table><thead><tr><th style="width:44px">#</th><th style="width:26%">知识点</th><th>扩展学习</th><th style="width:100px">状态</th></tr></thead><tbody>
+<tr><td>1</td><td>退化模型 g=h*f+n</td><td><a href="https://en.wikipedia.org/wiki/Wiener_filter" target="_blank" rel="noopener">Wiener filter</a> · <a href="https://en.wikipedia.org/wiki/Non-local_means" target="_blank" rel="noopener">Non-local means</a></td><td>正文已覆盖</td></tr>
+<tr><td>2</td><td>噪声模型与估计</td><td><a href="https://en.wikipedia.org/wiki/Median_filter" target="_blank" rel="noopener">Median filter</a> · <a href="https://en.wikipedia.org/wiki/Peak_signal-to-noise_ratio" target="_blank" rel="noopener">Peak signal-to-noise ratio</a></td><td>正文已覆盖</td></tr>
+<tr><td>3</td><td>逆滤波的病态性</td><td><a href="https://en.wikipedia.org/wiki/Wiener_filter" target="_blank" rel="noopener">Wiener filter</a> · <a href="https://en.wikipedia.org/wiki/Discrete_Fourier_transform" target="_blank" rel="noopener">Discrete Fourier transform</a></td><td>正文已覆盖</td></tr>
+<tr><td>4</td><td>维纳滤波推导</td><td><a href="https://en.wikipedia.org/wiki/Wiener_filter" target="_blank" rel="noopener">Wiener filter</a> · <a href="https://en.wikipedia.org/wiki/Peak_signal-to-noise_ratio" target="_blank" rel="noopener">Peak signal-to-noise ratio</a></td><td>正文已覆盖</td></tr>
+<tr><td>5</td><td>参数 K 的折中</td><td><a href="https://en.wikipedia.org/wiki/Wiener_filter" target="_blank" rel="noopener">Wiener filter</a> · <a href="https://en.wikipedia.org/wiki/Non-local_means" target="_blank" rel="noopener">Non-local means</a></td><td>正文已覆盖</td></tr>
+<tr><td>6</td><td>复原评价与伪影</td><td><a href="https://en.wikipedia.org/wiki/Wiener_filter" target="_blank" rel="noopener">Wiener filter</a> · <a href="https://en.wikipedia.org/wiki/Peak_signal-to-noise_ratio" target="_blank" rel="noopener">Peak signal-to-noise ratio</a></td><td>正文已覆盖</td></tr>
+</tbody></table></section>
+<section id="s6-1"><h2><span class="sec-num">§6.1</span>退化模型与噪声</h2>
+<span class="eq">g(r,c) = (h ∗ f)(r,c) + n(r,c)　⇔　G = H·F + N</span>
+<p><code>h</code> 是 PSF（运动模糊是一条线、失焦是一个圆盘、大气湍流近似高斯）；<code>n</code> 是加性噪声。复原的目标是<strong>在只知道 g 与 h 的情况下估计 f</strong>，这是典型的反问题。</p>
+<table><thead><tr><th>噪声</th><th>模型</th><th>典型来源 / 对策</th></tr></thead><tbody>
+<tr><td>高斯</td><td>加性 N(0,σ²)</td><td>传感器读出热噪声；均值/维纳/非局部均值</td></tr>
+<tr><td>椒盐</td><td>随机像素置 0/1</td><td>传输误码、坏点；中值滤波</td></tr>
+<tr><td>泊松</td><td>方差随亮度增大</td><td>光子散粒噪声；方差稳定化变换（Anscombe）</td></tr>
+<tr><td>周期</td><td>固定频率正弦干扰</td><td>电源/扫描条纹；频域陷波</td></tr>
+</tbody></table>
+</section>
+<section id="s6-2"><h2><span class="sec-num">§6.2</span>逆滤波与病态性</h2>
+<p>最朴素的想法是 <code>F̂ = G / H</code>。问题在于 <code>H</code> 在高频往往<strong>接近 0</strong>（PSF 是低通），而噪声 <code>N</code> 在高频并不小，于是 <code>N/H</code> 被急剧放大，结果被噪声淹没。这就是<strong>病态反问题</strong>：解不连续依赖输入，微小扰动导致巨大偏差。</p>
+<div class="card warn"><p style="margin-bottom:0">判断标准：画出 <code>|H|</code> 的衰减曲线。凡是 <code>|H|</code> 低于噪声水平的频率，都不该做除法。第 06 章实验会让你亲手把 <code>H</code> 加一点保护再看差异。</p></div>
+</section>
+<section id="s6-3"><h2><span class="sec-num">§6.3</span>维纳滤波</h2>
+<p>把“误差的均方期望最小”作为准则，假设图像与噪声是互不相关的平稳随机过程，可得频域解：</p>
+<span class="eq">F̂(u,v) = [ H*(u,v) / ( |H(u,v)|² + Sₙ/S_f ) ] · G(u,v) = [ H* / (|H|² + K) ] · G</span>
+<ul><li><code>K = Sₙ/S_f</code> 是<strong>噪信功率比</strong>；<code>K = 0</code> 退化为逆滤波，<code>K → ∞</code> 退化为全零（完全不信数据）。</li>
+<li>在 <code>|H|² ≫ K</code> 的频率上近似逆滤波，在 <code>|H|² ≪ K</code> 的频率上自动衰减，从而抑制噪声放大。</li>
+<li>工程上 <code>K</code> 常当作<strong>可调标量</strong>：先扫几个数量级，用 PSNR 或下游任务指标选，而不是真的去估计功率谱。</li></ul>
+<p>维纳滤波是“最优线性复原”，但它仍假设平稳性与已知 PSF。真实场景（未知模糊核、空间变化噪声）需要盲去卷积或数据驱动的先验——这正是<a href="../../part4/23-deep-restoration/index.html">第 23 章</a>深度复原网络要解决的问题。</p>
+</section>
+<section id="lab"><h2><span class="sec-num">§</span>Octave 实例</h2>
+<h3>模糊 + 噪声：逆滤波与维纳滤波的定量对照</h3>
+<pre class="code" data-file="code/06-wiener.m" data-lang="GNU Octave"><code>%% 06-wiener.m | 退化模型 / 逆滤波 / 维纳滤波 / PSNR 对照
+%% GNU Octave，零第三方依赖；合成图像，无需任何外部文件
+clear; close all; clc;
+SHOW = ~strcmp(getenv("IP_HEADLESS"), "1");
+% ---- 参数区 ----
+N = 128; psf_sigma = 1.4; noise_sigma = 0.02; K = 0.02; k = 9;
+randn("seed", 41);
+% ---- 造图：文字状方块 + 细线 ----
+[X, Y] = meshgrid(1:N, 1:N);
+f = 0.20 + 0.55*double(X &gt; N/4 &amp; X &lt; 3*N/4 &amp; Y &gt; N/3 &amp; Y &lt; 2*N/3);
+f(abs(Y - N/4) &lt; 2) = 0.85;
+% ---- 造 PSF：高斯核放入 NxN 左上角（DFT 周期原点）----
+[PX, PY] = meshgrid(-(k-1)/2:(k-1)/2, -(k-1)/2:(k-1)/2);
+psf = exp(-(PX.^2 + PY.^2) / (2*psf_sigma^2)); psf = psf / sum(psf(:));
+P = zeros(N, N); P(1:k, 1:k) = psf;
+H = fft2(P);
+% ---- 退化：频域卷积 + 加性高斯噪声 ----
+G = H .* fft2(f);
+blurred = real(ifft2(G));
+g = blurred + noise_sigma * randn(N, N);
+G = fft2(g);
+% ---- 复原 1：朴素逆滤波（加极小保护避免除零）----
+f_inv = real(ifft2(G ./ (H + 1e-12)));
+% ---- 复原 2：维纳滤波 ----
+f_wie = real(ifft2(conj(H) ./ (abs(H).^2 + K) .* G));
+% ---- 数值验证 ----
+psnr_ = @(a,b) 10*log10(1 / max(mean((a(:)-b(:)).^2), eps));
+printf("PSF 和 = %.6f, |H| 最小值 = %.6f（接近 0 的地方会放大噪声）\n", ...
+       sum(psf(:)), min(abs(H(:))));
+printf("PSNR: 模糊+噪声 %.2f dB -&gt; 逆滤波 %.2f dB -&gt; 维纳 %.2f dB\n", ...
+       psnr_(g, f), psnr_(f_inv, f), psnr_(f_wie, f));
+printf("逆滤波结果标准差 = %.4f（远大于原图 %.4f，说明噪声被放大）\n", ...
+       std(f_inv(:)), std(f(:)));
+printf("维纳结果标准差 = %.4f\n", std(f_wie(:)));
+printf("提示：把 K 改成 0 / 0.001 / 0.2，看 PSNR 先升后降\n");
+% ---- 可视化 ----
+if SHOW
+  figure("name", "06 维纳复原");
+  subplot(2, 2, 1); imagesc(f, [0 1]); colormap gray; axis image off; title("原始 f");
+  subplot(2, 2, 2); imagesc(g, [0 1]); axis image off; title("模糊 + 噪声 g");
+  subplot(2, 2, 3); imagesc(f_inv); axis image off; title("逆滤波（噪声爆炸）");
+  subplot(2, 2, 4); imagesc(f_wie, [0 1]); axis image off; title("维纳滤波");
+end</code></pre>
+<p class="code-hint"><strong>操作：</strong>运行后按提示把 &lt;code&gt;K&lt;/code&gt; 改成 0 / 0.001 / 0.2 各跑一次，记录 PSNR 曲线；再把 &lt;code&gt;noise_sigma&lt;/code&gt; 提高 10 倍。　<strong>预期与判读：</strong>PSF 和为 1；&lt;code&gt;|H|&lt;/code&gt; 最小值接近 0；逆滤波 PSNR 往往比退化图还差且标准差暴涨；维纳在合适 K 下明显改善；K 过大则过度平滑、PSNR 回落。　文件位置：<code>part1/06-restoration/code/06-wiener.m</code></p>
+<div class="card note"><p style="margin-bottom:0">代码块右上角可一键复制；本仓库 <code>code/*.m</code> 由 <code>tools/extract_code.py</code> 从这些代码块自动抽取，页面与脚本永远一致。脚本只用 Octave 核心函数，设 <code>IP_HEADLESS=1</code> 可跳过绘图。</p></div>
+</section>
+<section id="pitfalls"><h2><span class="sec-num">§</span>常见误区</h2><div class="card warn"><ul><li>用 &lt;code&gt;G./H&lt;/code&gt; 且不检查 &lt;code&gt;|H|&lt;/code&gt;：高频除零导致数值溢出或满屏噪声。</li>
+<li>把 &lt;code&gt;K&lt;/code&gt; 当成固定常数：它应随噪声水平变化，不同图要重新扫参。</li>
+<li>用 PSNR 单独判定成功：过度平滑常给出不错的 PSNR，却丢失全部纹理。</li>
+<li>忽略边界：频域复原隐含周期卷积，边界会出现来自对侧的伪影。</li></ul></div></section>
+<section id="exercises"><h2><span class="sec-num">§</span>习题与思考</h2><ol><li>从最小化 &lt;code&gt;E[(f−f̂)²]&lt;/code&gt; 出发推导维纳滤波公式，说明 &lt;code&gt;K=Sₙ/S_f&lt;/code&gt; 的来历。</li>
+<li>在 06-wiener.m 里把 PSF 改成水平运动模糊（一行 9 点均值），预测复原难度并验证。</li></ol></section>
+<section id="extra-links"><h2><span class="sec-num">§</span>扩展学习</h2>
+<p>以下资料按本章知识点挑选，可直接精读或对照源码；知识点地图里每一条也挂了 1～2 个直达链接。</p>
+<ul>
+<li><strong>Wiener filter</strong>（百科）：最小均方误差意义下的最优线性复原<br><a href="https://en.wikipedia.org/wiki/Wiener_filter" target="_blank" rel="noopener">Wiener filter</a></li>
+<li><strong>Non-local means</strong>（百科）：利用图像自相似性的去噪<br><a href="https://en.wikipedia.org/wiki/Non-local_means" target="_blank" rel="noopener">Non-local means</a></li>
+<li><strong>Peak signal-to-noise ratio</strong>（百科）：基于 MSE 的复原评价指标及其局限<br><a href="https://en.wikipedia.org/wiki/Peak_signal-to-noise_ratio" target="_blank" rel="noopener">Peak signal-to-noise ratio</a></li>
+<li><strong>Structural similarity</strong>（百科）：结构相似度的亮度/对比度/结构三项<br><a href="https://en.wikipedia.org/wiki/Structural_similarity" target="_blank" rel="noopener">Structural similarity</a></li>
+<li><strong>DnCNN</strong>（复原）：残差学习去噪的经典工程<br><a href="https://github.com/cszn/DnCNN" target="_blank" rel="noopener">DnCNN</a></li>
+</ul>
+<p class="code-hint">继续扩展：<a href="https://github.com/search?q=image%20restoration%20Wiener%20filter%20Octave&amp;type=repositories" target="_blank" rel="noopener">在 GitHub 检索本章相关开源工程</a> · <a href="https://www.google.com/search?q=image%20restoration%20Wiener%20filter%20Octave" target="_blank" rel="noopener">按本章主题检索资料</a> · <a href="../../index.html#resources">全书参考资源总表</a> · <a href="../../appendix/index.html">附录 A 速查与链接总表</a></p>
+</section>
+<section id="further"><h2><span class="sec-num">§</span>延伸阅读与内链</h2><ul><li><a href='../05-frequency-domain/index.html'>第 5 章 频域处理</a></li>
+<li><a href='../04-spatial-filter/index.html'>第 4 章 空间域滤波（非局部均值）</a></li>
+<li><a href='../../part4/23-deep-restoration/index.html'>第 23 章 深度复原与超分辨率</a></li></ul></section>
+<footer class="pager" data-autofill></footer>
+<footer class="site-foot">
+<p class="credits"><strong>作者</strong>：汪亮（bertonwang）　<strong>联系邮箱</strong>：<a href="mailto:47608843@qq.com">47608843@qq.com</a></p>
+<p class="ai-note"><strong>AI 使用说明</strong>：本教材的知识框架、正文、Octave 示例代码与开源工程清单在 AI 辅助下整理生成，并经人工校订与静态自检。公式、数值与运行结果请以GNU Octave 实际输出及权威教材、官方文档为准；发现错漏欢迎通过上方邮箱勘误。</p>
+<p class="imprint">数字图像处理：从经典算法到智能方法 · 上卷每章一个 <code>code/*.m</code> Octave 脚本（由 <code>tools/extract_code.py</code> 从 HTML 同步） · 下卷给出官方开源工程链接 · GNU Octave 为自由软件，本书与之无从属关系。</p>
+</footer>
+</main>
+</body>
+</html>

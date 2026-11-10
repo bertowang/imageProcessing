@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第 00 章 · 绪论：两条路线，一本书 | 数字图像处理：从经典算法到智能方法</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script src="../../assets/toc.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</head>
+<body data-root="../../" data-chapter="00">
+<aside id="sidebar"></aside>
+<main class="book-page">
+<nav class="breadcrumb" data-autofill>总目录</nav>
+<header class="chapter-head">
+<span class="kicker">卷首 · 工具与约定</span>
+<h1><span class="ch-num">第 00 章</span>绪论：两条路线，一本书</h1>
+<p class="lede">把图像处理拆成上卷的可推导算法与下卷的可复现工程：前者要能手推、能跑、能改，后者要能找准原理与官方实现。</p>
+<div class="meta">
+<span class="badge done">已完稿</span>
+<span>建议 1 学时</span>
+<span>1 个 Octave 实例</span>
+<span class="badge upper">上卷 · 传统算法</span>
+<span>数字图像处理：从经典算法到智能方法</span>
+</div></header>
+<div class="card objectives"><span class="card-label">学习目标</span><ul>
+<li>能说清传统算法与深度学习在建模对象、先验来源与失败模式上的差别</li>
+<li>知道上下两卷各自的输出物是什么（可运行脚本 / 开源工程链接）</li>
+<li>掌握本书固定的四步学习闭环，并会用它安排一章的学习</li>
+</ul></div>
+<section id="map"><h2><span class="sec-num">§</span>知识点地图</h2>
+<p class="code-hint">每个知识点都配了 1～2 个扩展学习链接；本章完整资源清单见 <a href="#extra-links">扩展学习</a>。</p>
+<table><thead><tr><th style="width:44px">#</th><th style="width:26%">知识点</th><th>扩展学习</th><th style="width:100px">状态</th></tr></thead><tbody>
+<tr><td>1</td><td>两条路线的分工</td><td><a href="https://en.wikipedia.org/wiki/Digital_image_processing" target="_blank" rel="noopener">Digital image processing</a> · <a href="https://cs231n.github.io/" target="_blank" rel="noopener">Stanford CS231n</a></td><td>正文已覆盖</td></tr>
+<tr><td>2</td><td>本书结构与学习闭环</td><td><a href="https://en.wikipedia.org/wiki/Digital_image_processing" target="_blank" rel="noopener">Digital image processing</a> · <a href="https://cs231n.github.io/" target="_blank" rel="noopener">Stanford CS231n</a></td><td>正文已覆盖</td></tr>
+<tr><td>3</td><td>给程序员的阅读约定</td><td><a href="https://en.wikipedia.org/wiki/Digital_image_processing" target="_blank" rel="noopener">Digital image processing</a> · <a href="https://cs231n.github.io/" target="_blank" rel="noopener">Stanford CS231n</a></td><td>正文已覆盖</td></tr>
+<tr><td>4</td><td>先修数学清单</td><td><a href="https://en.wikipedia.org/wiki/Digital_image_processing" target="_blank" rel="noopener">Digital image processing</a> · <a href="https://cs231n.github.io/" target="_blank" rel="noopener">Stanford CS231n</a></td><td>正文已覆盖</td></tr>
+<tr><td>5</td><td>符号与坐标约定</td><td><a href="https://en.wikipedia.org/wiki/Digital_image_processing" target="_blank" rel="noopener">Digital image processing</a> · <a href="https://cs231n.github.io/" target="_blank" rel="noopener">Stanford CS231n</a></td><td>正文已覆盖</td></tr>
+<tr><td>6</td><td>AI 使用说明</td><td><a href="https://en.wikipedia.org/wiki/Digital_image_processing" target="_blank" rel="noopener">Digital image processing</a> · <a href="https://cs231n.github.io/" target="_blank" rel="noopener">Stanford CS231n</a></td><td>正文已覆盖</td></tr>
+</tbody></table></section>
+<section id="s0-1"><h2><span class="sec-num">§0.1</span>两条路线的分工</h2>
+<p>图像处理要回答同一个问题：<strong>给定像素矩阵，如何得到想要的语义或数值？</strong>两条路线的差别不在“谁更准”，而在<strong>知识从哪里来</strong>。</p>
+<table><thead><tr><th style="width:20%">维度</th><th>上卷 · 传统算法</th><th>下卷 · AI 算法</th></tr></thead><tbody>
+<tr><td>知识来源</td><td>人写的先验：线性系统、噪声模型、几何约束、统计分布</td><td>数据中的统计规律：由损失函数与优化器从标注中拟合</td></tr>
+<tr><td>参数</td><td>少量、有物理含义（核宽、阈值、迭代次数）</td><td>百万到十亿级、无直接物理含义的权重</td></tr>
+<tr><td>可解释性</td><td>每一步都能写出公式，误差可逐项归因</td><td>需借助热力图、消融实验与探针间接解释</td></tr>
+<tr><td>数据需求</td><td>一张图就能做，适合小样本、无标注场景</td><td>依赖大规模标注与算力，分布外容易失效</td></tr>
+<tr><td>典型失败</td><td>模型假设被破坏（噪声非高斯、光照突变、纹理复杂）</td><td>训练/部署分布不一致、标注偏差、对抗样本</td></tr>
+<tr><td>本书输出物</td><td>可运行的 <code>.m</code> 脚本 + 预期数值</td><td>原理主线 + 官方开源工程链接</td></tr>
+</tbody></table>
+<p>两者不是替代关系：下卷的数据增强、预处理、后处理、评价指标、退化建模，几乎全部来自上卷；很多工业系统仍是“传统流水线做确定性部分 + 网络做不确定部分”。<a href="../../part4/26-projects/index.html">第 26 章</a>会要求同一任务同时做两条基线并对比。</p>
+</section>
+<section id="s0-2"><h2><span class="sec-num">§0.2</span>本书结构与学习闭环</h2>
+<p>全书 27 章 + 附录，按上下两卷组织：</p>
+<ol class="roadmap">
+<li><strong>卷首（00～02）</strong>：约定语言。Octave 环境、图像即矩阵、卷积与评价指标。没有这三层约定，后面的公式和代码都会读错。</li>
+<li><strong>上卷（03～15）</strong>：从像素级变换到结构级理解，顺序是<em>增强 → 频域 → 复原 → 几何 → 彩色 → 形态学 → 边缘 → 特征 → 分割 → 描述 → 压缩</em>，最后用一个完整流水线收口。每章至少一个 Octave 实例。</li>
+<li><strong>下卷（16～26）</strong>：先用<em>特征工程与机器学习</em>过渡，再进入 CNN、数据集与评测、分类、检测、分割、复原、生成、基础模型，最后是部署与综合项目。每章给官方开源工程链接。</li>
+</ol>
+<p><strong>学习闭环固定为四步：读公式 → 跑代码 → 改参数 → 写结论。</strong>只跑通不改参数，等于只抄了答案；建议每章记录“手算预期值 → 脚本输出值 → 偏差 → 原因”四列。</p>
+</section>
+<section id="s0-3"><h2><span class="sec-num">§0.3</span>给程序员的阅读约定</h2>
+<p>本书默认读者写过代码、但未必学过信号与系统，因此所有约定都显式写出来：</p>
+<div class="card contract"><span class="card-label">代码契约（上卷每章适用）</span><ul style="margin-bottom:0">
+<li><strong>零依赖</strong>：只用 Octave 核心函数（<code>conv2</code>/<code>fft2</code>/<code>interp2</code>/<code>imagesc</code> 等），不调用 image 包的 <code>imfilter</code>/<code>edge</code>/<code>imresize</code>。算法主体全部展开，方便对照公式。</li>
+<li><strong>自包含</strong>：用 <code>meshgrid</code> 合成测试图，不读外部文件，复制整段代码到 Octave 即可运行。</li>
+<li><strong>参数集中</strong>：脚本开头的 <code>% ---- 参数区 ----</code> 集中所有可调量，先改这里。</li>
+<li><strong>数值断言</strong>：结尾 <code>printf</code> 打印可手算核对的量；页面「预期与判读」给出数值与解释。</li>
+<li><strong>可批量验证</strong>：设环境变量 <code>IP_HEADLESS=1</code> 即不弹窗；用 <code>tools/run_octave.sh</code> 可跑完全部 <code>.m</code>。</li>
+</ul></div>
+<p>HTML 里的代码块与仓库 <code>code/*.m</code> 由 <code>tools/extract_code.py</code> 自动同步，永远一致；改动请改 <code>tools/chapters_*.py</code>，再运行 <code>python3 tools/build_book.py --force</code> 重新生成。</p>
+</section>
+<section id="s0-4"><h2><span class="sec-num">§0.4</span>先修知识与符号约定</h2>
+<table><thead><tr><th style="width:22%">主题</th><th>需要到什么程度</th><th>对应章节</th></tr></thead><tbody>
+<tr><td>线性代数</td><td>矩阵乘法、转置、特征值直觉；把图像看作 <code>M×N</code> 矩阵</td><td>02、07、17</td></tr>
+<tr><td>微积分与概率</td><td>偏导、梯度、期望/方差、常见分布</td><td>06、10、17</td></tr>
+<tr><td>信号与系统</td><td>卷积、傅里叶变换、线性移不变系统、采样</td><td>02、05、14</td></tr>
+<tr><td>最优化</td><td>最小二乘、梯度下降、正则化</td><td>06、12、16、17</td></tr>
+<tr><td>编程</td><td>数组/切片/广播、向量化、循环；Octave 或 MATLAB 任一</td><td>01、全书</td></tr>
+</tbody></table>
+<p><strong>符号约定</strong>：图像记作 <code>f(r,c)</code>，<code>r</code> 是<strong>行</strong>（向下为增，相当于 y），<code>c</code> 是<strong>列</strong>（向右为增，相当于 x）；灰度统一归一化到 <code>[0,1]</code> 的 <code>double</code>；卷积核尺寸为奇数；<code>*</code> 在公式里表示卷积、在代码里表示矩阵乘，代码里的卷积一律用 <code>conv2</code> 显式写出。</p>
+<div class="card tip"><p style="margin-bottom:0">最容易踩的坑：<strong>行列与 xy 顺序相反</strong>。<code>f(r,c)</code> 对应坐标 <code>(x,y)=(c,r)</code>。写几何变换时先固定这一点，第 07 章会专门处理。</p></div>
+</section>
+<section id="lab"><h2><span class="sec-num">§</span>Octave 实例</h2>
+<h3>最小可运行脚本：矩阵即图像</h3>
+<pre class="code" data-file="code/00-hello-image.m" data-lang="GNU Octave"><code>%% 00-hello-image.m | 第一个图像程序：矩阵即图像
+%% GNU Octave，零第三方依赖；合成图像，无需任何外部文件
+clear; close all; clc;
+SHOW = ~strcmp(getenv("IP_HEADLESS"), "1");
+% ---- 参数区 ----
+N = 8;
+% ---- 造图：左半 1（白），右半 0（黑）----
+[X, Y] = meshgrid(1:N, 1:N);
+img = double(X &lt;= 4);
+% ---- 数值验证 ----
+printf("尺寸: %d x %d (行 x 列)\n", rows(img), columns(img));
+printf("min=%.2f max=%.2f mean=%.4f\n", min(img(:)), max(img(:)), mean(img(:)));
+printf("第 1 行: "); printf("%.0f ", img(1, :)); printf("\n");
+printf("第 1 列之和（应等于行数）: %.0f\n", sum(img(:, 1)));
+% ---- 可视化 ----
+if SHOW
+  figure("name", "00 矩阵即图像");
+  imagesc(img, [0 1]); colormap gray; axis image off;
+  title("8x8 二值图像：f(r,c)"); colorbar;
+end</code></pre>
+<p class="code-hint"><strong>操作：</strong>在 Octave 中直接运行 &lt;code&gt;code/00-hello-image.m&lt;/code&gt;；批量验证用 &lt;code&gt;IP_HEADLESS=1 tools/run_octave.sh&lt;/code&gt;。　<strong>预期与判读：</strong>尺寸 8×8；min=0、max=1、均值 0.5；第 1 行是 1 1 1 1 0 0 0 0；第 1 列之和为 8。　文件位置：<code>part0/00-preface/code/00-hello-image.m</code></p>
+<div class="card note"><p style="margin-bottom:0">代码块右上角可一键复制；本仓库 <code>code/*.m</code> 由 <code>tools/extract_code.py</code> 从这些代码块自动抽取，页面与脚本永远一致。脚本只用 Octave 核心函数，设 <code>IP_HEADLESS=1</code> 可跳过绘图。</p></div>
+</section>
+<section id="pitfalls"><h2><span class="sec-num">§</span>常见误区</h2><div class="card warn"><ul><li>把图像当成 x 优先的坐标：矩阵索引是 (行, 列)，即 (y, x)。</li>
+<li>只跑代码不改参数：看不出核宽、阈值对结果的影响，等于没做实验。</li>
+<li>以为下卷不需要上卷：数据增强、退化建模、评测指标全都是传统算法的直接应用。</li></ul></div></section>
+<section id="exercises"><h2><span class="sec-num">§</span>习题与思考</h2><ol><li>把 N 改成 16、判据改成 Y &amp;lt;= 4，预测均值与第 1 行的样子，再运行核对。</li>
+<li>用本页的四步闭环，为第 03 章写一份实验记录模板（含预期值列）。</li></ol></section>
+<section id="extra-links"><h2><span class="sec-num">§</span>扩展学习</h2>
+<p>以下资料按本章知识点挑选，可直接精读或对照源码；知识点地图里每一条也挂了 1～2 个直达链接。</p>
+<ul>
+<li><strong>Digital image processing</strong>（百科）：学科总览与术语索引<br><a href="https://en.wikipedia.org/wiki/Digital_image_processing" target="_blank" rel="noopener">Digital image processing</a></li>
+<li><strong>Stanford CS231n</strong>（课程）：经典视觉课程笔记，下卷最好的免费配套教材<br><a href="https://cs231n.github.io/" target="_blank" rel="noopener">Stanford CS231n</a></li>
+<li><strong>scikit-image</strong>（工具）：Python 图像处理库，对照阅读每类传统算法的生产级实现<br><a href="https://scikit-image.org/" target="_blank" rel="noopener">scikit-image</a></li>
+<li><strong>GNU Octave</strong>（工具）：免费、与 MATLAB 语法高度兼容的科学计算环境，本书上卷代码的目标平台<br><a href="https://octave.org/" target="_blank" rel="noopener">GNU Octave</a></li>
+<li><strong>Papers with Code</strong>（文档）：按任务查 SOTA 方法与官方代码仓库<br><a href="https://paperswithcode.com/" target="_blank" rel="noopener">Papers with Code</a></li>
+</ul>
+<p class="code-hint">继续扩展：<a href="https://github.com/search?q=image%20processing%20textbook%20classical%20deep%20learning&amp;type=repositories" target="_blank" rel="noopener">在 GitHub 检索本章相关开源工程</a> · <a href="https://www.google.com/search?q=image%20processing%20textbook%20classical%20deep%20learning" target="_blank" rel="noopener">按本章主题检索资料</a> · <a href="../../index.html#resources">全书参考资源总表</a> · <a href="../../appendix/index.html">附录 A 速查与链接总表</a></p>
+</section>
+<section id="further"><h2><span class="sec-num">§</span>延伸阅读与内链</h2><ul><li><a href='../01-octave-setup/index.html'>第 1 章 GNU Octave 环境</a></li>
+<li><a href='../../part4/26-projects/index.html'>第 26 章 工程落地与综合项目</a></li>
+<li><a href='../../appendix/index.html'>附录 A · 速查与资源总表</a></li></ul></section>
+<footer class="pager" data-autofill></footer>
+<footer class="site-foot">
+<p class="credits"><strong>作者</strong>：汪亮（bertonwang）　<strong>联系邮箱</strong>：<a href="mailto:47608843@qq.com">47608843@qq.com</a></p>
+<p class="ai-note"><strong>AI 使用说明</strong>：本教材的知识框架、正文、Octave 示例代码与开源工程清单在 AI 辅助下整理生成，并经人工校订与静态自检。公式、数值与运行结果请以GNU Octave 实际输出及权威教材、官方文档为准；发现错漏欢迎通过上方邮箱勘误。</p>
+<p class="imprint">数字图像处理：从经典算法到智能方法 · 上卷每章一个 <code>code/*.m</code> Octave 脚本（由 <code>tools/extract_code.py</code> 从 HTML 同步） · 下卷给出官方开源工程链接 · GNU Octave 为自由软件，本书与之无从属关系。</p>
+</footer>
+</main>
+</body>
+</html>

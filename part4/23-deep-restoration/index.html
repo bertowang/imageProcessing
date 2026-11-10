@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第 23 章 · 深度复原与超分辨率 | 数字图像处理：从经典算法到智能方法</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script src="../../assets/toc.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</head>
+<body data-root="../../" data-chapter="23">
+<aside id="sidebar"></aside>
+<main class="book-page">
+<nav class="breadcrumb" data-autofill>总目录</nav>
+<header class="chapter-head">
+<span class="kicker">第四篇 · 视觉任务与工程落地</span>
+<h1><span class="ch-num">第 23 章</span>深度复原与超分辨率</h1>
+<p class="lede">上卷用维纳滤波写出显式先验，这里用数据学出先验：同一个病态逆问题，换了一种正则化方式。</p>
+<div class="meta">
+<span class="badge done">已完稿</span>
+<span>建议 4 学时</span>
+<span>6 个开源工程</span>
+<span class="badge lower">下卷 · AI 算法</span>
+<span>数字图像处理：从经典算法到智能方法</span>
+</div></header>
+<div class="card objectives"><span class="card-label">学习目标</span><ul>
+<li>能把深度复原重新表述为第 06 章的逆问题</li>
+<li>理解残差学习与噪声水平图的作用</li>
+<li>能对比 PSNR 导向与感知导向的超分模型</li>
+<li>能识别真实退化下的评价陷阱</li>
+</ul></div>
+<section id="map"><h2><span class="sec-num">§</span>知识点地图</h2>
+<p class="code-hint">每个知识点都配了 1～2 个扩展学习链接；本章完整资源清单见 <a href="#extra-links">扩展学习</a>。</p>
+<table><thead><tr><th style="width:44px">#</th><th style="width:26%">知识点</th><th>扩展学习</th><th style="width:100px">状态</th></tr></thead><tbody>
+<tr><td>1</td><td>病态逆问题与学习先验</td><td><a href="https://github.com/cszn/DnCNN" target="_blank" rel="noopener">DnCNN</a> · <a href="https://github.com/xinntao/Real-ESRGAN" target="_blank" rel="noopener">Real-ESRGAN</a></td><td>正文已覆盖</td></tr>
+<tr><td>2</td><td>DnCNN 与残差去噪</td><td><a href="https://en.wikipedia.org/wiki/Non-local_means" target="_blank" rel="noopener">Non-local means</a> · <a href="https://en.wikipedia.org/wiki/Peak_signal-to-noise_ratio" target="_blank" rel="noopener">Peak signal-to-noise ratio</a></td><td>正文已覆盖</td></tr>
+<tr><td>3</td><td>噪声水平图与非盲/盲去噪</td><td><a href="https://en.wikipedia.org/wiki/Non-local_means" target="_blank" rel="noopener">Non-local means</a> · <a href="https://en.wikipedia.org/wiki/Peak_signal-to-noise_ratio" target="_blank" rel="noopener">Peak signal-to-noise ratio</a></td><td>正文已覆盖</td></tr>
+<tr><td>4</td><td>SRCNN / EDSR</td><td><a href="https://github.com/cszn/DnCNN" target="_blank" rel="noopener">DnCNN</a> · <a href="https://github.com/xinntao/Real-ESRGAN" target="_blank" rel="noopener">Real-ESRGAN</a></td><td>正文已覆盖</td></tr>
+<tr><td>5</td><td>ESRGAN 与感知损失</td><td><a href="https://github.com/xinntao/ESRGAN" target="_blank" rel="noopener">ESRGAN</a> · <a href="https://github.com/xinntao/Real-ESRGAN" target="_blank" rel="noopener">Real-ESRGAN</a></td><td>正文已覆盖</td></tr>
+<tr><td>6</td><td>真实退化建模</td><td><a href="https://github.com/cszn/DnCNN" target="_blank" rel="noopener">DnCNN</a> · <a href="https://github.com/xinntao/Real-ESRGAN" target="_blank" rel="noopener">Real-ESRGAN</a></td><td>正文已覆盖</td></tr>
+<tr><td>7</td><td>PSNR 与感知质量的分歧</td><td><a href="https://en.wikipedia.org/wiki/Peak_signal-to-noise_ratio" target="_blank" rel="noopener">Peak signal-to-noise ratio</a> · <a href="https://en.wikipedia.org/wiki/Structural_similarity" target="_blank" rel="noopener">Structural similarity</a></td><td>正文已覆盖</td></tr>
+</tbody></table></section>
+<section id="s23-1"><h2><span class="sec-num">§23.1</span>从上卷到这里的同一条公式</h2>
+<p>第 06 章的退化模型 <code>g = h∗f + n</code> 依然成立，维纳滤波用<strong>功率谱比</strong>作为先验；深度方法把先验换成一个由数据学出的网络 <code>f̂ = R_θ(g)</code>，训练目标是最小化重建误差或感知距离。区别在于：维纳的先验是<strong>人写死的平稳性假设</strong>，网络的先验是<strong>训练图像分布的统计规律</strong>。因此网络在训练分布外（新传感器、新噪声类型）同样会失效，只是失效方式更难解释。</p>
+</section>
+<section id="s23-2"><h2><span class="sec-num">§23.2</span>去噪与超分的代表性结构</h2>
+<table><thead><tr><th>任务</th><th>模型</th><th>要点</th></tr></thead><tbody>
+<tr><td>高斯去噪</td><td>DnCNN / FFDNet</td><td>预测<strong>噪声残差</strong>而非干净图；批归一化 + 残差学习；FFDNet 把噪声水平图一起输入，一个模型覆盖多噪声强度</td></tr>
+<tr><td>超分</td><td>SRCNN → EDSR</td><td>从三层卷积到去掉 BN 的深残差网络，优化 PSNR</td></tr>
+<tr><td>感知超分</td><td>SRGAN / ESRGAN</td><td>加入对抗损失与 VGG 感知损失，生成更锐利的纹理</td></tr>
+<tr><td>真实退化</td><td>Real-ESRGAN</td><td>用高阶退化建模（模糊、下采样、噪声、压缩多次叠加）合成训练对</td></tr>
+</tbody></table>
+<p><strong>关键矛盾</strong>：像素级损失（L1/MSE）会给出高 PSNR 但过度平滑的结果；对抗/感知损失视觉更锐利，却可能<strong> hallucinate </strong>出原本不存在的纹理。医学影像、遥感测量等场景必须优先保真，不能用感知导向模型直接出定量结论。</p>
+</section>
+<section id="s23-3"><h2><span class="sec-num">§23.3</span>评价与落地</h2>
+<ul><li>有配对真值：PSNR / SSIM；无配对真实退化：无参考指标 + 人工评分 + 下游任务指标。</li>
+<li>务必在<strong>真实退化</strong>数据上验证：只用双三次下采样合成的测试集，会系统性高估泛化能力。</li>
+<li>与第 06 章的维纳滤波做对照实验：记录 PSNR、运行时间与“过度平滑”的主观评价。</li></ul>
+<div class="card note"><p style="margin-bottom:0">这一章是上下卷结合最紧的地方：先用第 06 章的公式判断退化类型，再决定用维纳这样的可解释线性方法，还是用学习先验。工程上常把两者串联——传统方法做确定性校正，网络只学残差。</p></div>
+</section>
+<section id="repos"><h2><span class="sec-num">§</span>开源工程与实现链接</h2>
+<p>本章原理对应的官方 / 开源实现。建议先跑通最小复现命令，再按「推荐用法」改动一个变量做对照实验。</p>
+<div class="card tip"><p style="margin-bottom:0">复现路径：先用第 06 章的 &lt;code&gt;06-wiener.m&lt;/code&gt; 生成退化图与 PSNR 基线，再跑 DnCNN 官方评测做同表对比。</p></div>
+<div class="repo-grid">
+<div class="repo-card">
+<h3><a href="https://github.com/cszn/DnCNN" target="_blank" rel="noopener">DnCNN</a></h3>
+<span class="tag">复原 · 官方/开源实现</span>
+<p>残差学习去噪的经典工程</p>
+<span class="why"><strong>怎么用</strong>：残差去噪的经典官方实现，含不同噪声水平的训练脚本</span>
+<p style="margin:0"><code>https://github.com/cszn/DnCNN</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/xinntao/Real-ESRGAN" target="_blank" rel="noopener">Real-ESRGAN</a></h3>
+<span class="tag">复原 · 官方/开源实现</span>
+<p>面向真实退化图像的盲超分</p>
+<span class="why"><strong>怎么用</strong>：真实退化盲超分，提供可直接运行的推理与权重</span>
+<p style="margin:0"><code>https://github.com/xinntao/Real-ESRGAN</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/xinntao/ESRGAN" target="_blank" rel="noopener">ESRGAN</a></h3>
+<span class="tag">复原 · 官方/开源实现</span>
+<p>感知损失驱动的超分辨率</p>
+<span class="why"><strong>怎么用</strong>：感知损失 + 对抗训练的超分原始实现，理解 PSNR/感知权衡</span>
+<p style="margin:0"><code>https://github.com/xinntao/ESRGAN</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/huggingface/diffusers" target="_blank" rel="noopener">Hugging Face Diffusers</a></h3>
+<span class="tag">生成 · 官方/开源实现</span>
+<p>扩散模型推理与训练管线</p>
+<span class="why"><strong>怎么用</strong>：扩散先验用于复原与图像编辑的统一管线</span>
+<p style="margin:0"><code>https://github.com/huggingface/diffusers</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://scikit-image.org/docs/stable/user_guide/" target="_blank" rel="noopener">scikit-image User Guide</a></h3>
+<span class="tag">文档 · 官方/开源实现</span>
+<p>按任务组织的传统算法讲解，适合与本书章节互相对照</p>
+<span class="why"><strong>怎么用</strong>：传统复原算子的参考实现，用来搭建对照基线</span>
+<p style="margin:0"><code>https://scikit-image.org/docs/stable/user_guide/</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/Lightning-AI/torchmetrics" target="_blank" rel="noopener">TorchMetrics</a></h3>
+<span class="tag">评测 · 官方/开源实现</span>
+<p>mAP / IoU / Dice / PSNR 等指标的可靠实现</p>
+<span class="why"><strong>怎么用</strong>：PSNR / SSIM / LPIDS 等指标的统一实现，避免手写误差</span>
+<p style="margin:0"><code>https://github.com/Lightning-AI/torchmetrics</code></p>
+</div>
+</div>
+<p class="code-hint">使用约定：以下仓库均为各自维护者的项目，本书与之无从属关系；请阅读其 README 与许可证后再用于课程或生产环境。更多资源见 <a href="#extra-links">扩展学习</a> 与 <a href="../../appendix/index.html">附录 A.3 开源工程总表</a>。</p>
+</section>
+<section id="pitfalls"><h2><span class="sec-num">§</span>常见误区</h2><div class="card warn"><ul><li>只报 PSNR 就说“更清晰”：感知导向模型常 PSNR 更低但视觉更好。</li>
+<li>只在双三次下采样测试集上评价超分：与真实退化差距很大。</li>
+<li>在医学/测量场景使用生成式超分：可能凭空生成纹理，影响诊断或计量。</li>
+<li>忽略噪声水平：非盲模型在训练范围外的噪声强度上会明显退化。</li></ul></div></section>
+<section id="exercises"><h2><span class="sec-num">§</span>习题与思考</h2><ol><li>把维纳滤波的 &lt;code&gt;K&lt;/code&gt; 与 DnCNN 的噪声水平图作类比，说明两者分别在注入什么先验。</li>
+<li>设计一个同时包含 PSNR、SSIM、人工评分与下游检测 mAP 的超分评价表，并说明各自回答什么问题。</li></ol></section>
+<section id="extra-links"><h2><span class="sec-num">§</span>扩展学习</h2>
+<p>以下资料按本章知识点挑选，可直接精读或对照源码；知识点地图里每一条也挂了 1～2 个直达链接。</p>
+<ul>
+<li><strong>DnCNN</strong>（复原）：残差学习去噪的经典工程<br><a href="https://github.com/cszn/DnCNN" target="_blank" rel="noopener">DnCNN</a></li>
+<li><strong>Real-ESRGAN</strong>（复原）：面向真实退化图像的盲超分<br><a href="https://github.com/xinntao/Real-ESRGAN" target="_blank" rel="noopener">Real-ESRGAN</a></li>
+<li><strong>ESRGAN</strong>（复原）：感知损失驱动的超分辨率<br><a href="https://github.com/xinntao/ESRGAN" target="_blank" rel="noopener">ESRGAN</a></li>
+<li><strong>Peak signal-to-noise ratio</strong>（百科）：基于 MSE 的复原评价指标及其局限<br><a href="https://en.wikipedia.org/wiki/Peak_signal-to-noise_ratio" target="_blank" rel="noopener">Peak signal-to-noise ratio</a></li>
+<li><strong>Structural similarity</strong>（百科）：结构相似度的亮度/对比度/结构三项<br><a href="https://en.wikipedia.org/wiki/Structural_similarity" target="_blank" rel="noopener">Structural similarity</a></li>
+</ul>
+<p class="code-hint">继续扩展：<a href="https://github.com/search?q=image%20denoising%20super%20resolution%20deep%20learning&amp;type=repositories" target="_blank" rel="noopener">在 GitHub 检索本章相关开源工程</a> · <a href="https://www.google.com/search?q=image%20denoising%20super%20resolution%20deep%20learning" target="_blank" rel="noopener">按本章主题检索资料</a> · <a href="../../index.html#resources">全书参考资源总表</a> · <a href="../../appendix/index.html">附录 A 速查与链接总表</a></p>
+</section>
+<section id="further"><h2><span class="sec-num">§</span>延伸阅读与内链</h2><ul><li><a href='../../part1/06-restoration/index.html'>第 6 章 图像复原与去噪（显式先验）</a></li>
+<li><a href='../24-generative-models/index.html'>第 24 章 生成模型（对抗与扩散先验）</a></li>
+<li><a href='../../part3/19-datasets-evaluation/index.html'>第 19 章 评测指标</a></li></ul></section>
+<footer class="pager" data-autofill></footer>
+<footer class="site-foot">
+<p class="credits"><strong>作者</strong>：汪亮（bertonwang）　<strong>联系邮箱</strong>：<a href="mailto:47608843@qq.com">47608843@qq.com</a></p>
+<p class="ai-note"><strong>AI 使用说明</strong>：本教材的知识框架、正文、Octave 示例代码与开源工程清单在 AI 辅助下整理生成，并经人工校订与静态自检。公式、数值与运行结果请以GNU Octave 实际输出及权威教材、官方文档为准；发现错漏欢迎通过上方邮箱勘误。</p>
+<p class="imprint">数字图像处理：从经典算法到智能方法 · 上卷每章一个 <code>code/*.m</code> Octave 脚本（由 <code>tools/extract_code.py</code> 从 HTML 同步） · 下卷给出官方开源工程链接 · GNU Octave 为自由软件，本书与之无从属关系。</p>
+</footer>
+</main>
+</body>
+</html>

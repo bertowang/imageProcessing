@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第 24 章 · 生成模型与图像翻译 | 数字图像处理：从经典算法到智能方法</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script src="../../assets/toc.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</head>
+<body data-root="../../" data-chapter="24">
+<aside id="sidebar"></aside>
+<main class="book-page">
+<nav class="breadcrumb" data-autofill>总目录</nav>
+<header class="chapter-head">
+<span class="kicker">第四篇 · 视觉任务与工程落地</span>
+<h1><span class="ch-num">第 24 章</span>生成模型与图像翻译</h1>
+<p class="lede">自编码器学压缩，GAN 学判别器看不见的真实性，扩散模型学逐步去噪：三条路线对应三种不同的概率建模方式。</p>
+<div class="meta">
+<span class="badge done">已完稿</span>
+<span>建议 4 学时</span>
+<span>8 个开源工程</span>
+<span class="badge lower">下卷 · AI 算法</span>
+<span>数字图像处理：从经典算法到智能方法</span>
+</div></header>
+<div class="card objectives"><span class="card-label">学习目标</span><ul>
+<li>能写出 VAE 的目标函数并说明重参数化的作用</li>
+<li>能解释 GAN 的极小极大目标与模式崩塌</li>
+<li>能描述 DDPM 前向/反向过程与潜空间扩散的动机</li>
+<li>能列出生成模型的评测方式与伦理风险</li>
+</ul></div>
+<section id="map"><h2><span class="sec-num">§</span>知识点地图</h2>
+<p class="code-hint">每个知识点都配了 1～2 个扩展学习链接；本章完整资源清单见 <a href="#extra-links">扩展学习</a>。</p>
+<table><thead><tr><th style="width:44px">#</th><th style="width:26%">知识点</th><th>扩展学习</th><th style="width:100px">状态</th></tr></thead><tbody>
+<tr><td>1</td><td>自编码器与 VAE</td><td><a href="https://en.wikipedia.org/wiki/Variational_autoencoder" target="_blank" rel="noopener">Variational autoencoder</a> · <a href="https://d2l.ai/" target="_blank" rel="noopener">动手学深度学习 d2l.ai</a></td><td>正文已覆盖</td></tr>
+<tr><td>2</td><td>ELBO 与重参数化</td><td><a href="https://en.wikipedia.org/wiki/Generative_adversarial_network" target="_blank" rel="noopener">Generative adversarial network</a> · <a href="https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix" target="_blank" rel="noopener">pix2pix / CycleGAN</a></td><td>正文已覆盖</td></tr>
+<tr><td>3</td><td>GAN 极小极大博弈</td><td><a href="https://en.wikipedia.org/wiki/Generative_adversarial_network" target="_blank" rel="noopener">Generative adversarial network</a> · <a href="https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix" target="_blank" rel="noopener">pix2pix / CycleGAN</a></td><td>正文已覆盖</td></tr>
+<tr><td>4</td><td>pix2pix / CycleGAN</td><td><a href="https://en.wikipedia.org/wiki/Generative_adversarial_network" target="_blank" rel="noopener">Generative adversarial network</a> · <a href="https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix" target="_blank" rel="noopener">pix2pix / CycleGAN</a></td><td>正文已覆盖</td></tr>
+<tr><td>5</td><td>StyleGAN 与潜在空间</td><td><a href="https://en.wikipedia.org/wiki/Generative_adversarial_network" target="_blank" rel="noopener">Generative adversarial network</a> · <a href="https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix" target="_blank" rel="noopener">pix2pix / CycleGAN</a></td><td>正文已覆盖</td></tr>
+<tr><td>6</td><td>DDPM 与扩散过程</td><td><a href="https://github.com/huggingface/diffusers" target="_blank" rel="noopener">Hugging Face Diffusers</a> · <a href="https://en.wikipedia.org/wiki/Diffusion_model" target="_blank" rel="noopener">Diffusion model</a></td><td>正文已覆盖</td></tr>
+<tr><td>7</td><td>LDM / Stable Diffusion</td><td><a href="https://github.com/CompVis/stable-diffusion" target="_blank" rel="noopener">Stable Diffusion</a> · <a href="https://github.com/CompVis/latent-diffusion" target="_blank" rel="noopener">Latent Diffusion</a></td><td>正文已覆盖</td></tr>
+<tr><td>8</td><td>FID 与可控生成</td><td><a href="https://en.wikipedia.org/wiki/Generative_adversarial_network" target="_blank" rel="noopener">Generative adversarial network</a> · <a href="https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix" target="_blank" rel="noopener">pix2pix / CycleGAN</a></td><td>正文已覆盖</td></tr>
+</tbody></table></section>
+<section id="s24-1"><h2><span class="sec-num">§24.1</span>VAE：把图像压进一个分布</h2>
+<p>自编码器把图像压成低维向量再重建，只能做插值，不能保证潜在空间连续可采样。<strong>VAE</strong> 让编码器输出分布参数 <code>(μ, σ)</code>，用<strong>重参数化技巧</strong> <code>z = μ + σ·ε</code> 使采样可导，优化证据下界：</p>
+<span class="eq">L = E_q[log p(x|z)] − KL( q(z|x) ‖ p(z) )</span>
+<p>第一项是重建质量，第二项把潜在分布拉向标准正态。VAE 采样稳定、覆盖模式较全，但结果常偏模糊。</p>
+</section>
+<section id="s24-2"><h2><span class="sec-num">§24.2</span>GAN 与图像翻译</h2>
+<span class="eq">min_G max_D  E_x[log D(x)] + E_z[log(1 − D(G(z)))]</span>
+<p>生成器与判别器做极小极大博弈，判别器逼生成器逼近真实图像分布。优势是样本锐利，代价是训练不稳定、<strong>模式崩塌</strong>（只生成少数几类）与难以覆盖全分布。</p>
+<ul><li><strong>pix2pix</strong>：需要成对数据的条件图像翻译（边缘图 → 照片、掩模 → 立面）。</li>
+<li><strong>CycleGAN</strong>：用循环一致性约束处理<strong>非配对</strong>数据（马 ↔ 斑马、风格迁移）。</li>
+<li><strong>StyleGAN</strong>：把风格注入生成器的不同层级，得到可解释、可编辑的潜在方向。</li></ul>
+</section>
+<section id="s24-3"><h2><span class="sec-num">§24.3</span>扩散模型</h2>
+<ol><li><strong>前向</strong>：按固定方差表逐步给图像加高斯噪声，直到接近纯噪声；任意时刻 <code>x_t</code> 有闭式表达。</li>
+<li><strong>反向</strong>：训练一个去噪网络预测所加噪声，从 <code>x_T</code> 逐步还原 <code>x_0</code>。</li>
+<li><strong>潜空间扩散（LDM）</strong>：先用 VAE 把图像压到低维潜空间再做扩散，算力骤降，这就是 Stable Diffusion 的核心。</li>
+<li><strong>条件与引导</strong>：文本、边缘、深度图等条件 + classifier-free guidance 控制“贴合提示”与“多样性”的权衡。</li></ol>
+<p>扩散模型训练稳定、覆盖度好，已成为图像生成与编辑的主流；采样慢是主要工程代价，需要蒸馏或更少步数的采样器。</p>
+<pre class="code" data-file="inline" data-lang="Shell"><code>pip install diffusers transformers torch accelerate
+python -c "from diffusers import DiffusionPipeline; print('diffusers ready')"</code></pre>
+</section>
+<section id="s24-4"><h2><span class="sec-num">§24.4</span>评测与伦理</h2>
+<p><strong>FID</strong> 比较生成分布与真实分布在 Inception 特征空间的均值/协方差，<strong>CLIP Score</strong> 衡量图文对齐；二者都不等于“好看”，也都不能检测记忆化（把训练图背出来）。落地前必须考虑：训练数据版权、生成内容的标识、偏见放大、以及在医学/司法等场景误用合成图像的风险。</p>
+</section>
+<section id="repos"><h2><span class="sec-num">§</span>开源工程与实现链接</h2>
+<p>本章原理对应的官方 / 开源实现。建议先跑通最小复现命令，再按「推荐用法」改动一个变量做对照实验。</p>
+<div class="card tip"><p style="margin-bottom:0">建议练习：用 diffusers 固定随机种子生成一组图，改 guidance scale 观察“贴合提示 vs 多样性”的变化。</p></div>
+<div class="repo-grid">
+<div class="repo-card">
+<h3><a href="https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix" target="_blank" rel="noopener">pix2pix / CycleGAN</a></h3>
+<span class="tag">生成 · 官方/开源实现</span>
+<p>配对与非配对图像翻译的官方实现</p>
+<span class="why"><strong>怎么用</strong>：pix2pix 与 CycleGAN 官方实现，配对/非配对翻译的标准起点</span>
+<p style="margin:0"><code>https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/NVlabs/stylegan3" target="_blank" rel="noopener">StyleGAN3</a></h3>
+<span class="tag">生成 · 官方/开源实现</span>
+<p>高质量人脸/图像生成与潜在空间编辑</p>
+<span class="why"><strong>怎么用</strong>：高质量生成与潜在空间编辑的 NVIDIA 官方工程</span>
+<p style="margin:0"><code>https://github.com/NVlabs/stylegan3</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/hojonathanho/diffusion" target="_blank" rel="noopener">DDPM (官方)</a></h3>
+<span class="tag">生成 · 官方/开源实现</span>
+<p>去噪扩散概率模型原始实现</p>
+<span class="why"><strong>怎么用</strong>：去噪扩散概率模型的原始实现，读训练目标最清楚</span>
+<p style="margin:0"><code>https://github.com/hojonathanho/diffusion</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/CompVis/stable-diffusion" target="_blank" rel="noopener">Stable Diffusion</a></h3>
+<span class="tag">生成 · 官方/开源实现</span>
+<p>潜空间扩散模型，文生图基线</p>
+<span class="why"><strong>怎么用</strong>：Stable Diffusion 原始仓库与权重</span>
+<p style="margin:0"><code>https://github.com/CompVis/stable-diffusion</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/CompVis/latent-diffusion" target="_blank" rel="noopener">Latent Diffusion</a></h3>
+<span class="tag">生成 · 官方/开源实现</span>
+<p>LDM 训练与条件生成代码</p>
+<span class="why"><strong>怎么用</strong>：LDM 训练与条件生成代码，理解潜空间扩散</span>
+<p style="margin:0"><code>https://github.com/CompVis/latent-diffusion</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/huggingface/diffusers" target="_blank" rel="noopener">Hugging Face Diffusers</a></h3>
+<span class="tag">生成 · 官方/开源实现</span>
+<p>扩散模型推理与训练管线</p>
+<span class="why"><strong>怎么用</strong>：当前最完整的扩散推理/训练管线，含多种采样器与 LoRA</span>
+<p style="margin:0"><code>https://github.com/huggingface/diffusers</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://en.wikipedia.org/wiki/Generative_adversarial_network" target="_blank" rel="noopener">Generative adversarial network</a></h3>
+<span class="tag">百科 · 官方/开源实现</span>
+<p>生成器/判别器的极小极大博弈</p>
+<span class="why"><strong>怎么用</strong>：GAN 的数学定义、变体与失效模式综述</span>
+<p style="margin:0"><code>https://en.wikipedia.org/wiki/Generative_adversarial_network</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://en.wikipedia.org/wiki/Variational_autoencoder" target="_blank" rel="noopener">Variational autoencoder</a></h3>
+<span class="tag">百科 · 官方/开源实现</span>
+<p>重参数化与 ELBO</p>
+<span class="why"><strong>怎么用</strong>：ELBO 与重参数化的推导条目</span>
+<p style="margin:0"><code>https://en.wikipedia.org/wiki/Variational_autoencoder</code></p>
+</div>
+</div>
+<p class="code-hint">使用约定：以下仓库均为各自维护者的项目，本书与之无从属关系；请阅读其 README 与许可证后再用于课程或生产环境。更多资源见 <a href="#extra-links">扩展学习</a> 与 <a href="../../appendix/index.html">附录 A.3 开源工程总表</a>。</p>
+</section>
+<section id="pitfalls"><h2><span class="sec-num">§</span>常见误区</h2><div class="card warn"><ul><li>把 FID 数值跨论文直接比较：采样量与特征网络可能不同。</li>
+<li>忽视模式崩塌：GAN 生成的样本很锐利，但可能只覆盖少数模式。</li>
+<li>在需要保真的场景用生成式模型：细节可能是“编”出来的（第 23 章）。</li>
+<li>不检查训练数据与权重许可：生成模型的版权风险高于判别模型。</li></ul></div></section>
+<section id="exercises"><h2><span class="sec-num">§</span>习题与思考</h2><ol><li>推导 VAE 的 ELBO，说明 KL 项为什么能防止潜在空间出现“空洞”。</li>
+<li>写出 DDPM 前向 &lt;code&gt;q(x_t|x_0)&lt;/code&gt; 的闭式形式，并解释为什么训练时可以直接采样任意 t。</li></ol></section>
+<section id="extra-links"><h2><span class="sec-num">§</span>扩展学习</h2>
+<p>以下资料按本章知识点挑选，可直接精读或对照源码；知识点地图里每一条也挂了 1～2 个直达链接。</p>
+<ul>
+<li><strong>Generative adversarial network</strong>（百科）：生成器/判别器的极小极大博弈<br><a href="https://en.wikipedia.org/wiki/Generative_adversarial_network" target="_blank" rel="noopener">Generative adversarial network</a></li>
+<li><strong>pix2pix / CycleGAN</strong>（生成）：配对与非配对图像翻译的官方实现<br><a href="https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix" target="_blank" rel="noopener">pix2pix / CycleGAN</a></li>
+<li><strong>StyleGAN3</strong>（生成）：高质量人脸/图像生成与潜在空间编辑<br><a href="https://github.com/NVlabs/stylegan3" target="_blank" rel="noopener">StyleGAN3</a></li>
+<li><strong>DDPM (官方)</strong>（生成）：去噪扩散概率模型原始实现<br><a href="https://github.com/hojonathanho/diffusion" target="_blank" rel="noopener">DDPM (官方)</a></li>
+<li><strong>Hugging Face Diffusers</strong>（生成）：扩散模型推理与训练管线<br><a href="https://github.com/huggingface/diffusers" target="_blank" rel="noopener">Hugging Face Diffusers</a></li>
+</ul>
+<p class="code-hint">继续扩展：<a href="https://github.com/search?q=diffusion%20model%20image%20generation%20open%20source&amp;type=repositories" target="_blank" rel="noopener">在 GitHub 检索本章相关开源工程</a> · <a href="https://www.google.com/search?q=diffusion%20model%20image%20generation%20open%20source" target="_blank" rel="noopener">按本章主题检索资料</a> · <a href="../../index.html#resources">全书参考资源总表</a> · <a href="../../appendix/index.html">附录 A 速查与链接总表</a></p>
+</section>
+<section id="further"><h2><span class="sec-num">§</span>延伸阅读与内链</h2><ul><li><a href='../23-deep-restoration/index.html'>第 23 章 深度复原（生成先验的另一面）</a></li>
+<li><a href='../../part3/19-datasets-evaluation/index.html'>第 19 章 FID 与评测</a></li>
+<li><a href='../25-vision-transformers/index.html'>第 25 章 基础模型与多模态</a></li></ul></section>
+<footer class="pager" data-autofill></footer>
+<footer class="site-foot">
+<p class="credits"><strong>作者</strong>：汪亮（bertonwang）　<strong>联系邮箱</strong>：<a href="mailto:47608843@qq.com">47608843@qq.com</a></p>
+<p class="ai-note"><strong>AI 使用说明</strong>：本教材的知识框架、正文、Octave 示例代码与开源工程清单在 AI 辅助下整理生成，并经人工校订与静态自检。公式、数值与运行结果请以GNU Octave 实际输出及权威教材、官方文档为准；发现错漏欢迎通过上方邮箱勘误。</p>
+<p class="imprint">数字图像处理：从经典算法到智能方法 · 上卷每章一个 <code>code/*.m</code> Octave 脚本（由 <code>tools/extract_code.py</code> 从 HTML 同步） · 下卷给出官方开源工程链接 · GNU Octave 为自由软件，本书与之无从属关系。</p>
+</footer>
+</main>
+</body>
+</html>

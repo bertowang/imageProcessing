@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第 19 章 · 数据集、评价指标与实验方法 | 数字图像处理：从经典算法到智能方法</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script src="../../assets/toc.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</head>
+<body data-root="../../" data-chapter="19">
+<aside id="sidebar"></aside>
+<main class="book-page">
+<nav class="breadcrumb" data-autofill>总目录</nav>
+<header class="chapter-head">
+<span class="kicker">第三篇 · 从特征到深度网络</span>
+<h1><span class="ch-num">第 19 章</span>数据集、评价指标与实验方法</h1>
+<p class="lede">指标定义决定优化方向：先约定“什么算对”，再谈模型；这一章也是全书从算法走向工程的分界线。</p>
+<div class="meta">
+<span class="badge done">已完稿</span>
+<span>建议 4 学时</span>
+<span>8 个开源工程</span>
+<span class="badge lower">下卷 · AI 算法</span>
+<span>数字图像处理：从经典算法到智能方法</span>
+</div></header>
+<div class="card objectives"><span class="card-label">学习目标</span><ul>
+<li>能列出五类常用视觉数据集及其任务与标注格式</li>
+<li>能识别并避免三种常见的数据泄漏</li>
+<li>能为分类/检测/分割/复原分别选对指标</li>
+<li>能写出一份可复现实验的清单</li>
+</ul></div>
+<section id="map"><h2><span class="sec-num">§</span>知识点地图</h2>
+<p class="code-hint">每个知识点都配了 1～2 个扩展学习链接；本章完整资源清单见 <a href="#extra-links">扩展学习</a>。</p>
+<table><thead><tr><th style="width:44px">#</th><th style="width:26%">知识点</th><th>扩展学习</th><th style="width:100px">状态</th></tr></thead><tbody>
+<tr><td>1</td><td>ImageNet / COCO / VOC / Cityscapes</td><td><a href="https://cocodataset.org/" target="_blank" rel="noopener">MS COCO</a> · <a href="https://github.com/cocodataset/cocoapi" target="_blank" rel="noopener">COCO API</a></td><td>正文已覆盖</td></tr>
+<tr><td>2</td><td>标注类型与格式</td><td><a href="https://github.com/cvat-ai/cvat" target="_blank" rel="noopener">CVAT</a> · <a href="https://github.com/HumanSignal/label-studio" target="_blank" rel="noopener">Label Studio</a></td><td>正文已覆盖</td></tr>
+<tr><td>3</td><td>数据集划分与泄漏</td><td><a href="https://www.image-net.org/" target="_blank" rel="noopener">ImageNet</a> · <a href="https://cocodataset.org/" target="_blank" rel="noopener">MS COCO</a></td><td>正文已覆盖</td></tr>
+<tr><td>4</td><td>Top-k / PR / F1</td><td><a href="https://www.image-net.org/" target="_blank" rel="noopener">ImageNet</a> · <a href="https://cocodataset.org/" target="_blank" rel="noopener">MS COCO</a></td><td>正文已覆盖</td></tr>
+<tr><td>5</td><td>mAP 与 IoU</td><td><a href="https://github.com/cocodataset/cocoapi" target="_blank" rel="noopener">COCO API</a> · <a href="https://en.wikipedia.org/wiki/Object_detection" target="_blank" rel="noopener">Object detection</a></td><td>正文已覆盖</td></tr>
+<tr><td>6</td><td>Dice / PSNR / SSIM / FID</td><td><a href="https://en.wikipedia.org/wiki/Peak_signal-to-noise_ratio" target="_blank" rel="noopener">Peak signal-to-noise ratio</a> · <a href="https://en.wikipedia.org/wiki/Structural_similarity" target="_blank" rel="noopener">Structural similarity</a></td><td>正文已覆盖</td></tr>
+<tr><td>7</td><td>消融与复现清单</td><td><a href="https://paperswithcode.com/" target="_blank" rel="noopener">Papers with Code</a> · <a href="https://cs231n.github.io/" target="_blank" rel="noopener">Stanford CS231n</a></td><td>正文已覆盖</td></tr>
+</tbody></table></section>
+<section id="s19-1"><h2><span class="sec-num">§19.1</span>常用数据集与标注</h2>
+<table><thead><tr><th>数据集</th><th>任务</th><th>标注</th></tr></thead><tbody>
+<tr><td>ImageNet / ImageNet-1k</td><td>分类、预训练</td><td>单标签（1000 类）</td></tr>
+<tr><td>MS COCO</td><td>检测、实例分割、关键点</td><td>框 / 多边形 / 关键点，JSON</td></tr>
+<tr><td>PASCAL VOC</td><td>检测、语义分割</td><td>框 / 类别掩模，课程实验首选</td></tr>
+<tr><td>Cityscapes</td><td>街景语义/实例分割</td><td>精细多边形标注，19 类</td></tr>
+<tr><td>ADE20K</td><td>场景解析</td><td>开放词表语义分割</td></tr>
+</tbody></table>
+<p>标注质量往往比模型选择更影响结果。<strong>标注规范</strong>（遮挡怎么标、边界容差、模糊样本是否丢弃）必须写进文档，否则不同人标出的同一类不可比。</p>
+</section>
+<section id="s19-2"><h2><span class="sec-num">§19.2</span>划分与数据泄漏</h2>
+<ul><li><strong>随机划分的陷阱</strong>：同一视频的相邻帧、同一患者的连续切片、同一产品的多角度照片若被分到训练与测试，指标会虚高。</li>
+<li><strong>预处理泄漏</strong>：在全量数据上算均值/方差、做 k-means 码本或特征选择，等于让测试集信息进入训练。</li>
+<li><strong>调参泄漏</strong>：反复用测试集选超参，测试集就变成了验证集。</li></ul>
+<p>正确做法是<strong>按实体分组划分</strong>（group split），并把所有统计量只在训练集上拟合。这一点与第 16 章的传统基线同样适用。</p>
+</section>
+<section id="s19-3"><h2><span class="sec-num">§19.3</span>指标对照表</h2>
+<table><thead><tr><th>任务</th><th>主指标</th><th>辅助 / 陷阱</th></tr></thead><tbody>
+<tr><td>分类</td><td>Top-1 / Top-5、每类 F1</td><td>不平衡时看宏平均与 PR 曲线，别只看准确率</td></tr>
+<tr><td>检测</td><td>mAP@0.5、mAP@0.5:0.95</td><td>IoU 阈值、NMS 阈值、小目标 AP 要单独报</td></tr>
+<tr><td>分割</td><td>mIoU、Dice、像素准确率</td><td>背景占比大时像素准确率毫无意义</td></tr>
+<tr><td>复原</td><td>PSNR / SSIM</td><td>与感知质量不一致，需补 LPIPS / 人工评分（第 23 章）</td></tr>
+<tr><td>生成</td><td>FID、CLIP Score</td><td>FID 依赖采样量与 Inception 特征，跨论文不可直接比</td></tr>
+</tbody></table>
+<p><strong>IoU</strong> = 交/并，是检测与分割的共同底座；<strong>mAP</strong> 是不同召回下 precision 的积分近似，由 PR 曲线下面积给出。工程上务必用官方评测脚本（COCO API / TorchMetrics），自己写的实现常在边界条件上不一致。</p>
+</section>
+<section id="s19-4"><h2><span class="sec-num">§19.4</span>消融与可复现清单</h2>
+<ol><li>固定随机种子、依赖版本、硬件与数据划分文件；</li>
+<li>只改一个因素，重复多次取均值与标准差；</li>
+<li>报告参数量、训练时长、推理时延，而不只报精度；</li>
+<li>公开失败案例与负结果；</li>
+<li>提供一条能从头跑通的命令。</li></ol>
+<p class="code-hint">本书上卷所有 <code>.m</code> 脚本固定随机种子、参数集中在开头、末尾打印可核对数值，就是同一套可复现约定的最简实现。</p>
+</section>
+<section id="repos"><h2><span class="sec-num">§</span>开源工程与实现链接</h2>
+<p>本章原理对应的官方 / 开源实现。建议先跑通最小复现命令，再按「推荐用法」改动一个变量做对照实验。</p>
+<div class="card tip"><p style="margin-bottom:0">课程建议：VOC 或自建小数据集 + TorchMetrics，先把评测脚本跑通，再开始调模型。</p></div>
+<div class="repo-grid">
+<div class="repo-card">
+<h3><a href="https://www.image-net.org/" target="_blank" rel="noopener">ImageNet</a></h3>
+<span class="tag">数据集 · 官方/开源实现</span>
+<p>分类与预训练的标准大数据集</p>
+<span class="why"><strong>怎么用</strong>：分类与预训练的标准数据集入口</span>
+<p style="margin:0"><code>https://www.image-net.org/</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://cocodataset.org/" target="_blank" rel="noopener">MS COCO</a></h3>
+<span class="tag">数据集 · 官方/开源实现</span>
+<p>检测 / 实例分割 / 关键点标准评测集</p>
+<span class="why"><strong>怎么用</strong>：检测/实例分割的官方数据与评测说明</span>
+<p style="margin:0"><code>https://cocodataset.org/</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="http://host.robots.ox.ac.uk/pascal/VOC/" target="_blank" rel="noopener">PASCAL VOC</a></h3>
+<span class="tag">数据集 · 官方/开源实现</span>
+<p>经典检测与分割小数据集，适合课程实验</p>
+<span class="why"><strong>怎么用</strong>：小体量、适合课程实验的经典检测与分割集</span>
+<p style="margin:0"><code>http://host.robots.ox.ac.uk/pascal/VOC/</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://www.cityscapes-dataset.com/" target="_blank" rel="noopener">Cityscapes</a></h3>
+<span class="tag">数据集 · 官方/开源实现</span>
+<p>街景语义分割与实例分割</p>
+<span class="why"><strong>怎么用</strong>：街景语义分割，注意其许可与使用条款</span>
+<p style="margin:0"><code>https://www.cityscapes-dataset.com/</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/Lightning-AI/torchmetrics" target="_blank" rel="noopener">TorchMetrics</a></h3>
+<span class="tag">评测 · 官方/开源实现</span>
+<p>mAP / IoU / Dice / PSNR 等指标的可靠实现</p>
+<span class="why"><strong>怎么用</strong>：统一实现 mAP / IoU / Dice / PSNR / SSIM / FID，避免手写指标误差</span>
+<p style="margin:0"><code>https://github.com/Lightning-AI/torchmetrics</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/cocodataset/cocoapi" target="_blank" rel="noopener">COCO API</a></h3>
+<span class="tag">评测 · 官方/开源实现</span>
+<p>COCO 标注读取与官方评测</p>
+<span class="why"><strong>怎么用</strong>：COCO 官方评测工具，检测结果必须以它为准</span>
+<p style="margin:0"><code>https://github.com/cocodataset/cocoapi</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/cvat-ai/cvat" target="_blank" rel="noopener">CVAT</a></h3>
+<span class="tag">标注 · 官方/开源实现</span>
+<p>开源标注平台，支持框/多边形/关键点</p>
+<span class="why"><strong>怎么用</strong>：开源标注平台，支持框、多边形、关键点与质检流程</span>
+<p style="margin:0"><code>https://github.com/cvat-ai/cvat</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/albumentations-team/albumentations" target="_blank" rel="noopener">Albumentations</a></h3>
+<span class="tag">框架 · 官方/开源实现</span>
+<p>高性能数据增强，支持框/掩码同步变换</p>
+<span class="why"><strong>怎么用</strong>：训练期增强，保证图像与标注同步变换</span>
+<p style="margin:0"><code>https://github.com/albumentations-team/albumentations</code></p>
+</div>
+</div>
+<p class="code-hint">使用约定：以下仓库均为各自维护者的项目，本书与之无从属关系；请阅读其 README 与许可证后再用于课程或生产环境。更多资源见 <a href="#extra-links">扩展学习</a> 与 <a href="../../appendix/index.html">附录 A.3 开源工程总表</a>。</p>
+</section>
+<section id="pitfalls"><h2><span class="sec-num">§</span>常见误区</h2><div class="card warn"><ul><li>用像素准确率评价前景只占 1% 的分割：全预测背景就有 99%。</li>
+<li>在全量数据上计算归一化均值：典型且隐蔽的数据泄漏。</li>
+<li>跨论文直接比较 FID 数值：采样数量与特征提取网络可能不同。</li>
+<li>自己实现 mAP：NMS 与边界条件的细微差异会让结果无法对照。</li></ul></div></section>
+<section id="exercises"><h2><span class="sec-num">§</span>习题与思考</h2><ol><li>写出 IoU 与 Dice 的关系式，并说明为什么二者单调一致但数值不同。</li>
+<li>为“视频帧级缺陷检测”设计不会泄漏的划分方案，并说明随机划分会高估多少（定性）。</li></ol></section>
+<section id="extra-links"><h2><span class="sec-num">§</span>扩展学习</h2>
+<p>以下资料按本章知识点挑选，可直接精读或对照源码；知识点地图里每一条也挂了 1～2 个直达链接。</p>
+<ul>
+<li><strong>ImageNet</strong>（数据集）：分类与预训练的标准大数据集<br><a href="https://www.image-net.org/" target="_blank" rel="noopener">ImageNet</a></li>
+<li><strong>MS COCO</strong>（数据集）：检测 / 实例分割 / 关键点标准评测集<br><a href="https://cocodataset.org/" target="_blank" rel="noopener">MS COCO</a></li>
+<li><strong>TorchMetrics</strong>（评测）：mAP / IoU / Dice / PSNR 等指标的可靠实现<br><a href="https://github.com/Lightning-AI/torchmetrics" target="_blank" rel="noopener">TorchMetrics</a></li>
+<li><strong>COCO API</strong>（评测）：COCO 标注读取与官方评测<br><a href="https://github.com/cocodataset/cocoapi" target="_blank" rel="noopener">COCO API</a></li>
+<li><strong>Albumentations</strong>（框架）：高性能数据增强，支持框/掩码同步变换<br><a href="https://github.com/albumentations-team/albumentations" target="_blank" rel="noopener">Albumentations</a></li>
+</ul>
+<p class="code-hint">继续扩展：<a href="https://github.com/search?q=train%20validation%20split%20data%20leakage%20computer%20vision&amp;type=repositories" target="_blank" rel="noopener">在 GitHub 检索本章相关开源工程</a> · <a href="https://www.google.com/search?q=train%20validation%20split%20data%20leakage%20computer%20vision" target="_blank" rel="noopener">按本章主题检索资料</a> · <a href="../../index.html#resources">全书参考资源总表</a> · <a href="../../appendix/index.html">附录 A 速查与链接总表</a></p>
+</section>
+<section id="further"><h2><span class="sec-num">§</span>延伸阅读与内链</h2><ul><li><a href='../16-learning-baselines/index.html'>第 16 章 传统基线的评估</a></li>
+<li><a href='../../part4/21-object-detection/index.html'>第 21 章 目标检测（mAP 的实际用法）</a></li>
+<li><a href='../../part4/26-projects/index.html'>第 26 章 工程落地与综合项目</a></li></ul></section>
+<footer class="pager" data-autofill></footer>
+<footer class="site-foot">
+<p class="credits"><strong>作者</strong>：汪亮（bertonwang）　<strong>联系邮箱</strong>：<a href="mailto:47608843@qq.com">47608843@qq.com</a></p>
+<p class="ai-note"><strong>AI 使用说明</strong>：本教材的知识框架、正文、Octave 示例代码与开源工程清单在 AI 辅助下整理生成，并经人工校订与静态自检。公式、数值与运行结果请以GNU Octave 实际输出及权威教材、官方文档为准；发现错漏欢迎通过上方邮箱勘误。</p>
+<p class="imprint">数字图像处理：从经典算法到智能方法 · 上卷每章一个 <code>code/*.m</code> Octave 脚本（由 <code>tools/extract_code.py</code> 从 HTML 同步） · 下卷给出官方开源工程链接 · GNU Octave 为自由软件，本书与之无从属关系。</p>
+</footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第 12 章 · 图像分割 | 数字图像处理：从经典算法到智能方法</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script src="../../assets/toc.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</head>
+<body data-root="../../" data-chapter="12">
+<aside id="sidebar"></aside>
+<main class="book-page">
+<nav class="breadcrumb" data-autofill>总目录</nav>
+<header class="chapter-head">
+<span class="kicker">第二篇 · 结构分析与理解</span>
+<h1><span class="ch-num">第 12 章</span>图像分割</h1>
+<p class="lede">从 Otsu 的一个阈值到水平集的一条演化曲线：分割方法的选择，取决于你能对图像写出多强的先验。</p>
+<div class="meta">
+<span class="badge done">已完稿</span>
+<span>建议 4 学时</span>
+<span>2 个 Octave 实例</span>
+<span class="badge upper">上卷 · 传统算法</span>
+<span>数字图像处理：从经典算法到智能方法</span>
+</div></header>
+<div class="card objectives"><span class="card-label">学习目标</span><ul>
+<li>能推导 Otsu 的类间方差准则并手写实现</li>
+<li>说清全局阈值、自适应阈值与聚类的适用边界</li>
+<li>能描述图割与活动轮廓各自优化的能量项</li>
+<li>会用连通域与形态学修整分割结果</li>
+</ul></div>
+<section id="map"><h2><span class="sec-num">§</span>知识点地图</h2>
+<p class="code-hint">每个知识点都配了 1～2 个扩展学习链接；本章完整资源清单见 <a href="#extra-links">扩展学习</a>。</p>
+<table><thead><tr><th style="width:44px">#</th><th style="width:26%">知识点</th><th>扩展学习</th><th style="width:100px">状态</th></tr></thead><tbody>
+<tr><td>1</td><td>全局阈值与 Otsu</td><td><a href="https://en.wikipedia.org/wiki/Otsu%27s_method" target="_blank" rel="noopener">Otsu&#x27;s method</a> · <a href="https://scikit-image.org/docs/stable/user_guide/" target="_blank" rel="noopener">scikit-image User Guide</a></td><td>正文已覆盖</td></tr>
+<tr><td>2</td><td>自适应阈值</td><td><a href="https://en.wikipedia.org/wiki/Otsu%27s_method" target="_blank" rel="noopener">Otsu&#x27;s method</a> · <a href="https://en.wikipedia.org/wiki/K-means_clustering" target="_blank" rel="noopener">k-means clustering</a></td><td>正文已覆盖</td></tr>
+<tr><td>3</td><td>区域生长与分水岭</td><td><a href="https://en.wikipedia.org/wiki/Watershed_(image_processing)" target="_blank" rel="noopener">Watershed (image processing)</a> · <a href="https://en.wikipedia.org/wiki/Distance_transform" target="_blank" rel="noopener">Distance transform</a></td><td>正文已覆盖</td></tr>
+<tr><td>4</td><td>k-means 颜色聚类</td><td><a href="https://en.wikipedia.org/wiki/K-means_clustering" target="_blank" rel="noopener">k-means clustering</a> · <a href="https://github.com/scikit-learn/scikit-learn" target="_blank" rel="noopener">scikit-learn</a></td><td>正文已覆盖</td></tr>
+<tr><td>5</td><td>图割与能量最小化</td><td><a href="https://en.wikipedia.org/wiki/Graph_cuts_in_computer_vision" target="_blank" rel="noopener">Graph cuts in computer vision</a> · <a href="https://en.wikipedia.org/wiki/Active_contour_model" target="_blank" rel="noopener">Active contour model</a></td><td>正文已覆盖</td></tr>
+<tr><td>6</td><td>活动轮廓与水平集</td><td><a href="https://en.wikipedia.org/wiki/Active_contour_model" target="_blank" rel="noopener">Active contour model</a> · <a href="https://en.wikipedia.org/wiki/Graph_cuts_in_computer_vision" target="_blank" rel="noopener">Graph cuts in computer vision</a></td><td>正文已覆盖</td></tr>
+</tbody></table></section>
+<section id="s12-1"><h2><span class="sec-num">§12.1</span>阈值与 Otsu</h2>
+<p>阈值分割假设<strong>直方图是双峰</strong>：目标与背景各占一峰。Otsu 不依赖人工选阈值，而是遍历所有候选 <code>t</code>，最大化类间方差：</p>
+<span class="eq">σ_B²(t) = w₀(t)·w₁(t)·[ μ₀(t) − μ₁(t) ]²</span>
+<p>等价于最小化类内方差。它只需直方图，复杂度 <code>O(L)</code>（L 为灰度级数），非常快；但<strong>光照不均、目标占比极小、直方图单峰</strong>时会失效。此时改用自适应阈值：每个像素用局部窗口的统计量算自己的阈值（如局部均值减常数 C）。</p>
+</section>
+<section id="s12-2"><h2><span class="sec-num">§12.2</span>区域、聚类与形态学后处理</h2>
+<ul><li><strong>区域生长</strong>：从种子出发，把满足相似性（灰度差、颜色距离）的邻像素并进来；关键是种子与停止准则。</li>
+<li><strong>分水岭</strong>：第 09 章的距离变换 + 标记控制流程，特别适合粘连圆形目标。</li>
+<li><strong>k-means 聚类</strong>：把每个像素看作特征向量（灰度、RGB、Lab，或加上位置），迭代更新类中心与归属；对初值敏感、需指定 K。</li>
+<li><strong>后处理</strong>：开运算去噪点、闭运算填孔、连通域面积筛选、边界平滑——工业流水线里这一步往往比换分割算法更有效。</li></ul>
+<p>无论用哪种方法，输出都应是<strong>逻辑掩模</strong>（整数标签），后续插值/缩放只能用最近邻，见第 07 章。</p>
+</section>
+<section id="s12-3"><h2><span class="sec-num">§12.3</span>能量最小化：图割与活动轮廓（研究生）</h2>
+<p>把分割写成给每个像素赋标签的能量最小化问题：</p>
+<span class="eq">E(L) = Σ_p D_p(L_p) + λ Σ_(p,q) V(L_p, L_q)</span>
+<p><strong>数据项</strong> <code>D</code> 描述像素像不像某类（可由颜色直方图建模），<strong>平滑项</strong> <code>V</code> 惩罚相邻像素标签不同（常用 Potts 模型）。当 V 是次模函数时，二值分割可用<strong>图割 / 最大流最小割</strong>求全局最优；这也是 GrabCut 交互式分割的核心。</p>
+<p><strong>活动轮廓（snake）</strong>则把边界参数化为曲线，最小化<em>内部弹性能 + 图像梯度吸引能 + 外部约束</em>；<strong>水平集</strong>把曲线嵌入高一维函数的零水平集，从而自然处理拓扑变化（分裂/合并）。二者优化的是连续几何，与图割的离散标签视角互补。这一支“可优化的能量模型”正是下卷用损失函数 + 反向传播取代的对象。</p>
+</section>
+<section id="lab"><h2><span class="sec-num">§</span>Octave 实例</h2>
+<h3>手写 Otsu：遍历 256 个阈值的类间方差</h3>
+<pre class="code" data-file="code/12-otsu.m" data-lang="GNU Octave"><code>%% 12-otsu.m | 直方图 / 类间方差 / 自动阈值 / 误分率
+%% GNU Octave，零第三方依赖；合成图像，无需任何外部文件
+clear; close all; clc;
+SHOW = ~strcmp(getenv("IP_HEADLESS"), "1");
+% ---- 参数区 ----
+N = 128; bins = 256; bg = 0.25; fg = 0.75; noise_sigma = 0.06;
+randn("seed", 81);
+% ---- 造图：亮目标 + 暗背景 + 高斯噪声 ----
+[X, Y] = meshgrid(1:N, 1:N);
+truth = double((X-64).^2 + (Y-64).^2 &lt; 30^2);
+f = bg + (fg-bg)*truth + noise_sigma*randn(N,N);
+f = min(max(f, 0), 1);
+% ---- 算法：直方图 -&gt; 遍历阈值 -&gt; 最大类间方差 ----
+q = round(f(:)*(bins-1)) + 1;
+h = zeros(bins,1);
+for i = 1:numel(q), h(q(i)) = h(q(i)) + 1; end
+total = numel(q); levels = (0:bins-1)' / (bins-1);
+best_var = -1; best_t = 1;
+for t = 2:bins
+  w0 = sum(h(1:t-1)) / total; w1 = 1 - w0;
+  if w0 == 0 || w1 == 0, continue; end
+  m0 = sum(levels(1:t-1) .* h(1:t-1)) / sum(h(1:t-1));
+  m1 = sum(levels(t:bins) .* h(t:bins)) / sum(h(t:bins));
+  v = w0 * w1 * (m0 - m1)^2;
+  if v &gt; best_var, best_var = v; best_t = t; end
+end
+T = levels(best_t);
+seg = f &gt; T;
+% ---- 数值验证 ----
+printf("直方图总和 = %d, 像素总数 = %d\n", sum(h), total);
+printf("Otsu 阈值 = %.4f（理论中点在 (%.2f+%.2f)/2 = %.2f）\n", T, bg, fg, (bg+fg)/2);
+printf("最大类间方差 = %.6f\n", best_var);
+printf("前景占比 = %.4f（真值 %.4f）\n", mean(seg(:)), mean(truth(:)));
+printf("误分率 = %.4f%%\n", 100*mean(seg(:) ~= truth(:)));
+printf("把噪声提高到 0.20 后误分率会明显上升，可自行验证\n");
+% ---- 可视化 ----
+if SHOW
+  figure("name", "12 Otsu 分割");
+  subplot(1, 3, 1); imagesc(f, [0 1]); colormap gray; axis image off; title("加噪图");
+  subplot(1, 3, 2); bar(h); xlim([0 bins]); title("双峰直方图");
+  subplot(1, 3, 3); imagesc(seg, [0 1]); axis image off; title("Otsu 掩模");
+end</code></pre>
+<p class="code-hint"><strong>操作：</strong>运行后把 &lt;code&gt;noise_sigma&lt;/code&gt; 改成 0.20、把前景面积缩小到半径 10，分别记录阈值与误分率。　<strong>预期与判读：</strong>直方图总和等于像素数；阈值应落在 0.5 附近（两峰中点）；最大类间方差约 0.06 量级；噪声变大或目标占比极小时，阈值偏移、误分率上升。　文件位置：<code>part2/12-segmentation/code/12-otsu.m</code></p>
+<h3>手写 k-means 灰度聚类与收敛过程</h3>
+<pre class="code" data-file="code/12-kmeans-seg.m" data-lang="GNU Octave"><code>%% 12-kmeans-seg.m | 1D 特征空间聚类 / 迭代收敛 / 标签图
+%% GNU Octave，零第三方依赖；合成图像，无需任何外部文件
+clear; close all; clc;
+SHOW = ~strcmp(getenv("IP_HEADLESS"), "1");
+% ---- 参数区 ----
+N = 96; K = 3; max_iter = 30;
+% ---- 造图：三级灰度的同心方环 + 轻微噪声 ----
+[X, Y] = meshgrid(1:N, 1:N); randn("seed", 82);
+d = max(abs(X-N/2), abs(Y-N/2));
+f = 0.20*double(d &gt; 30) + 0.50*double(d &gt; 15 &amp; d &lt;= 30) + 0.85*double(d &lt;= 15);
+f = min(max(f + 0.02*randn(N,N), 0), 1);
+% ---- 算法：交替更新归属与类中心 ----
+data = f(:); centers = [0.15; 0.50; 0.90];
+for it = 1:max_iter
+  dist = abs(data - centers');       % 自动广播成 numel(data) x K
+  [~, idx] = min(dist, [], 2);
+  new_centers = centers;
+  for k = 1:K
+    if any(idx == k), new_centers(k) = mean(data(idx == k)); end
+  end
+  shift = max(abs(new_centers - centers));
+  centers = new_centers;
+  if shift &lt; 1e-6, break; end
+end
+seg = reshape(idx, N, N);
+% ---- 数值验证 ----
+printf("真值灰度级: 0.20 / 0.70 / 0.85\n");
+printf("收敛迭代数 = %d, 最终中心位移 = %.3e\n", it, shift);
+printf("学到的类中心: "); printf("%.4f ", centers); printf("\n");
+printf("各类像素数: "); printf("%d ", arrayfun(@(k) sum(idx==k), 1:K)); printf("\n");
+printf("类内平方和 = %.4f\n", sum((data - centers(idx)).^2));
+% ---- 可视化 ----
+if SHOW
+  figure("name", "12 k-means");
+  subplot(1, 2, 1); imagesc(f, [0 1]); colormap gray; axis image off; title("原图");
+  subplot(1, 2, 2); imagesc(seg); axis image off; title("聚类标签图");
+end</code></pre>
+<p class="code-hint"><strong>操作：</strong>运行后把 &lt;code&gt;centers&lt;/code&gt; 初值改成 &lt;code&gt;[0.1;0.2;0.3]&lt;/code&gt;，观察是否收敛到同一解；把 K 改成 4。　<strong>预期与判读：</strong>迭代通常在十几步内收敛，中心接近三级真实灰度；类内平方和随 K 增大而下降（但 K 过大会把噪声也聚成一类）；初值不同可能得到不同局部最优。　文件位置：<code>part2/12-segmentation/code/12-kmeans-seg.m</code></p>
+<div class="card note"><p style="margin-bottom:0">代码块右上角可一键复制；本仓库 <code>code/*.m</code> 由 <code>tools/extract_code.py</code> 从这些代码块自动抽取，页面与脚本永远一致。脚本只用 Octave 核心函数，设 <code>IP_HEADLESS=1</code> 可跳过绘图。</p></div>
+</section>
+<section id="pitfalls"><h2><span class="sec-num">§</span>常见误区</h2><div class="card warn"><ul><li>对光照不均的图用全局 Otsu：一侧背景被整片误判为目标，需自适应阈值或先做光照校正。</li>
+<li>把 K 当成可以随便调大的参数：K 越大类内误差越小，但不代表分割更有意义。</li>
+<li>对掩模做双线性缩放：会生成不存在的标签值（第 07 章）。</li>
+<li>省略形态学与面积筛选：孤立噪点会让连通域计数完全失真。</li></ul></div></section>
+<section id="exercises"><h2><span class="sec-num">§</span>习题与思考</h2><ol><li>从类内方差最小出发，推导它与 Otsu 类间方差最大等价。</li>
+<li>在 12-kmeans-seg.m 里把特征从灰度改成 &lt;code&gt;[灰度, 行坐标, 列坐标]&lt;/code&gt; 的加权组合，观察分割是否开始按空间分区。</li></ol></section>
+<section id="extra-links"><h2><span class="sec-num">§</span>扩展学习</h2>
+<p>以下资料按本章知识点挑选，可直接精读或对照源码；知识点地图里每一条也挂了 1～2 个直达链接。</p>
+<ul>
+<li><strong>Otsu&#x27;s method</strong>（百科）：类间方差最大化的自动阈值<br><a href="https://en.wikipedia.org/wiki/Otsu%27s_method" target="_blank" rel="noopener">Otsu&#x27;s method</a></li>
+<li><strong>k-means clustering</strong>（百科）：迭代聚类与初始化敏感性<br><a href="https://en.wikipedia.org/wiki/K-means_clustering" target="_blank" rel="noopener">k-means clustering</a></li>
+<li><strong>Graph cuts in computer vision</strong>（百科）：能量最小化与交互式分割<br><a href="https://en.wikipedia.org/wiki/Graph_cuts_in_computer_vision" target="_blank" rel="noopener">Graph cuts in computer vision</a></li>
+<li><strong>Active contour model</strong>（百科）：蛇模型与水平集方法<br><a href="https://en.wikipedia.org/wiki/Active_contour_model" target="_blank" rel="noopener">Active contour model</a></li>
+<li><strong>Watershed (image processing)</strong>（百科）：地形淹没类比与过分割<br><a href="https://en.wikipedia.org/wiki/Watershed_(image_processing)" target="_blank" rel="noopener">Watershed (image processing)</a></li>
+</ul>
+<p class="code-hint">继续扩展：<a href="https://github.com/search?q=image%20segmentation%20Otsu%20Octave&amp;type=repositories" target="_blank" rel="noopener">在 GitHub 检索本章相关开源工程</a> · <a href="https://www.google.com/search?q=image%20segmentation%20Otsu%20Octave" target="_blank" rel="noopener">按本章主题检索资料</a> · <a href="../../index.html#resources">全书参考资源总表</a> · <a href="../../appendix/index.html">附录 A 速查与链接总表</a></p>
+</section>
+<section id="further"><h2><span class="sec-num">§</span>延伸阅读与内链</h2><ul><li><a href='../09-morphology/index.html'>第 9 章 数学形态学（后处理）</a></li>
+<li><a href='../../part3/16-learning-baselines/index.html'>第 16 章 从手工特征到学习</a></li>
+<li><a href='../../part4/22-segmentation-networks/index.html'>第 22 章 深度图像分割</a></li></ul></section>
+<footer class="pager" data-autofill></footer>
+<footer class="site-foot">
+<p class="credits"><strong>作者</strong>：汪亮（bertonwang）　<strong>联系邮箱</strong>：<a href="mailto:47608843@qq.com">47608843@qq.com</a></p>
+<p class="ai-note"><strong>AI 使用说明</strong>：本教材的知识框架、正文、Octave 示例代码与开源工程清单在 AI 辅助下整理生成，并经人工校订与静态自检。公式、数值与运行结果请以GNU Octave 实际输出及权威教材、官方文档为准；发现错漏欢迎通过上方邮箱勘误。</p>
+<p class="imprint">数字图像处理：从经典算法到智能方法 · 上卷每章一个 <code>code/*.m</code> Octave 脚本（由 <code>tools/extract_code.py</code> 从 HTML 同步） · 下卷给出官方开源工程链接 · GNU Octave 为自由软件，本书与之无从属关系。</p>
+</footer>
+</main>
+</body>
+</html>

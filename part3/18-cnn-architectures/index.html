@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第 18 章 · 经典 CNN 架构与迁移学习 | 数字图像处理：从经典算法到智能方法</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script src="../../assets/toc.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</head>
+<body data-root="../../" data-chapter="18">
+<aside id="sidebar"></aside>
+<main class="book-page">
+<nav class="breadcrumb" data-autofill>总目录</nav>
+<header class="chapter-head">
+<span class="kicker">第三篇 · 从特征到深度网络</span>
+<h1><span class="ch-num">第 18 章</span>经典 CNN 架构与迁移学习</h1>
+<p class="lede">从 LeNet 到 ConvNeXt 是一条不断回答“怎样堆得更深、更省、更好训练”的路线；迁移学习让这些骨干能用在小数据集上。</p>
+<div class="meta">
+<span class="badge done">已完稿</span>
+<span>建议 4 学时</span>
+<span>7 个开源工程</span>
+<span class="badge lower">下卷 · AI 算法</span>
+<span>数字图像处理：从经典算法到智能方法</span>
+</div></header>
+<div class="card objectives"><span class="card-label">学习目标</span><ul>
+<li>能按时间顺序说出骨干网络的关键创新</li>
+<li>能解释残差连接为什么改善深层优化</li>
+<li>能区分特征提取与微调两种迁移方式</li>
+<li>能根据精度/延迟/显存约束选择骨干</li>
+</ul></div>
+<section id="map"><h2><span class="sec-num">§</span>知识点地图</h2>
+<p class="code-hint">每个知识点都配了 1～2 个扩展学习链接；本章完整资源清单见 <a href="#extra-links">扩展学习</a>。</p>
+<table><thead><tr><th style="width:44px">#</th><th style="width:26%">知识点</th><th>扩展学习</th><th style="width:100px">状态</th></tr></thead><tbody>
+<tr><td>1</td><td>LeNet / AlexNet / VGG</td><td><a href="https://github.com/pytorch/vision" target="_blank" rel="noopener">torchvision</a> · <a href="https://github.com/huggingface/pytorch-image-models" target="_blank" rel="noopener">pytorch-image-models (timm)</a></td><td>正文已覆盖</td></tr>
+<tr><td>2</td><td>Inception 与多尺度</td><td><a href="https://github.com/KaimingHe/deep-residual-networks" target="_blank" rel="noopener">Deep Residual Networks</a> · <a href="https://github.com/pytorch/vision" target="_blank" rel="noopener">torchvision</a></td><td>正文已覆盖</td></tr>
+<tr><td>3</td><td>ResNet 与残差连接</td><td><a href="https://github.com/KaimingHe/deep-residual-networks" target="_blank" rel="noopener">Deep Residual Networks</a> · <a href="https://github.com/huggingface/pytorch-image-models" target="_blank" rel="noopener">pytorch-image-models (timm)</a></td><td>正文已覆盖</td></tr>
+<tr><td>4</td><td>DenseNet / EfficientNet</td><td><a href="https://github.com/huggingface/pytorch-image-models" target="_blank" rel="noopener">pytorch-image-models (timm)</a> · <a href="https://github.com/open-mmlab/mmpretrain" target="_blank" rel="noopener">MMPreTrain</a></td><td>正文已覆盖</td></tr>
+<tr><td>5</td><td>ConvNeXt 与现代训练法</td><td><a href="https://github.com/facebookresearch/ConvNeXt" target="_blank" rel="noopener">ConvNeXt</a> · <a href="https://github.com/huggingface/pytorch-image-models" target="_blank" rel="noopener">pytorch-image-models (timm)</a></td><td>正文已覆盖</td></tr>
+<tr><td>6</td><td>特征提取 vs 微调</td><td><a href="https://pytorch.org/tutorials/" target="_blank" rel="noopener">PyTorch Tutorials</a> · <a href="https://en.wikipedia.org/wiki/Transfer_learning" target="_blank" rel="noopener">Transfer learning</a></td><td>正文已覆盖</td></tr>
+<tr><td>7</td><td>预训练权重与领域差距</td><td><a href="https://github.com/huggingface/pytorch-image-models" target="_blank" rel="noopener">pytorch-image-models (timm)</a> · <a href="https://pytorch.org/tutorials/" target="_blank" rel="noopener">PyTorch Tutorials</a></td><td>正文已覆盖</td></tr>
+</tbody></table></section>
+<section id="s18-1"><h2><span class="sec-num">§18.1</span>骨干演进的关键节点</h2>
+<table><thead><tr><th>年份</th><th>网络</th><th>关键思想</th></tr></thead><tbody>
+<tr><td>1998</td><td>LeNet-5</td><td>卷积 + 池化 + 全连接的雏形，手写数字识别</td></tr>
+<tr><td>2012</td><td>AlexNet</td><td>ReLU、Dropout、GPU 训练、大规模数据增强</td></tr>
+<tr><td>2014</td><td>VGG</td><td>全部用 3×3 小核堆叠，结构规整、参数量大</td></tr>
+<tr><td>2014</td><td>GoogLeNet</td><td>Inception 多分支多尺度 + 1×1 降维</td></tr>
+<tr><td>2015</td><td>ResNet</td><td>残差连接，首次稳定训练上百层</td></tr>
+<tr><td>2017</td><td>DenseNet</td><td>层间密集复用特征，参数更省</td></tr>
+<tr><td>2019</td><td>EfficientNet</td><td>复合缩放深度/宽度/分辨率，用 NAS 定系数</td></tr>
+<tr><td>2022</td><td>ConvNeXt</td><td>用 ViT 时代的训练配方重训纯卷积，证明架构不是唯一变量</td></tr>
+</tbody></table>
+</section>
+<section id="s18-2"><h2><span class="sec-num">§18.2</span>残差连接</h2>
+<span class="eq">y = F(x, {Wᵢ}) + x，　∂L/∂x = ∂L/∂y · (1 + ∂F/∂x)</span>
+<p>恒等旁路给梯度提供了一条<strong>不经过任何权重</strong>的通路，即使 <code>∂F/∂x</code> 很小，梯度也不会连乘消失。它同时把学习目标从“学一个完整映射”改成“学相对恒等的残差”，优化地形更平滑。这一思想后来被 Transformer 的残差 + LayerNorm 原样继承（第 25 章）。</p>
+</section>
+<section id="s18-3"><h2><span class="sec-num">§18.3</span>迁移学习的两种用法</h2>
+<table><thead><tr><th>方式</th><th>做法</th><th>适合</th></tr></thead><tbody>
+<tr><td>特征提取</td><td>冻结骨干，只训练新的分类头</td><td>数据很少、算力有限、领域接近预训练集</td></tr>
+<tr><td>微调</td><td>解冻全部或部分层，用更小学习率继续训练</td><td>数据较多、领域有差距；浅层可用更小学习率</td></tr>
+</tbody></table>
+<p><strong>领域差距</strong>决定收益：ImageNet 预训练对自然图像几乎总是有用，对医学、遥感、工业缺陷等域则要看数据规模；此时第 25 章的自监督 / 基础模型特征往往更合适。选型时把<strong>精度、延迟、显存、许可协议</strong>四项一起列表，别只看 Top-1。</p>
+<pre class="code" data-file="inline" data-lang="Shell"><code>pip install torch torchvision timm
+python -c "import timm; print(len(timm.list_models()))"   # 查看可用预训练骨干数</code></pre>
+</section>
+<section id="repos"><h2><span class="sec-num">§</span>开源工程与实现链接</h2>
+<p>本章原理对应的官方 / 开源实现。建议先跑通最小复现命令，再按「推荐用法」改动一个变量做对照实验。</p>
+<div class="card tip"><p style="margin-bottom:0">建议实验：固定数据集与训练轮数，只换骨干，记录 Top-1、单张推理时延与显存峰值三列。</p></div>
+<div class="repo-grid">
+<div class="repo-card">
+<h3><a href="https://github.com/pytorch/vision" target="_blank" rel="noopener">torchvision</a></h3>
+<span class="tag">框架 · 官方/开源实现</span>
+<p>官方分类/检测/分割模型与数据集变换</p>
+<span class="why"><strong>怎么用</strong>：官方 &lt;code&gt;resnet50(weights=...)&lt;/code&gt; 等预训练模型与权重下载</span>
+<p style="margin:0"><code>https://github.com/pytorch/vision</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/huggingface/pytorch-image-models" target="_blank" rel="noopener">pytorch-image-models (timm)</a></h3>
+<span class="tag">分类 · 官方/开源实现</span>
+<p>数百个预训练分类骨干与训练脚本</p>
+<span class="why"><strong>怎么用</strong>：数百个骨干与统一 API，做精度/延迟对照实验最方便</span>
+<p style="margin:0"><code>https://github.com/huggingface/pytorch-image-models</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/KaimingHe/deep-residual-networks" target="_blank" rel="noopener">Deep Residual Networks</a></h3>
+<span class="tag">分类 · 官方/开源实现</span>
+<p>ResNet 原始实现</p>
+<span class="why"><strong>怎么用</strong>：ResNet 原始实现与论文配套代码，理解残差块的出处</span>
+<p style="margin:0"><code>https://github.com/KaimingHe/deep-residual-networks</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/facebookresearch/ConvNeXt" target="_blank" rel="noopener">ConvNeXt</a></h3>
+<span class="tag">分类 · 官方/开源实现</span>
+<p>用现代训练法改造纯卷积骨干</p>
+<span class="why"><strong>怎么用</strong>：现代训练配方改造纯卷积的官方实现</span>
+<p style="margin:0"><code>https://github.com/facebookresearch/ConvNeXt</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/facebookresearch/mae" target="_blank" rel="noopener">MAE</a></h3>
+<span class="tag">分类 · 官方/开源实现</span>
+<p>掩码自编码自监督预训练</p>
+<span class="why"><strong>怎么用</strong>：掩码自编码预训练：领域数据充足但无标注时的替代方案</span>
+<p style="margin:0"><code>https://github.com/facebookresearch/mae</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/facebookresearch/dinov2" target="_blank" rel="noopener">DINOv2</a></h3>
+<span class="tag">分类 · 官方/开源实现</span>
+<p>无需标注的通用视觉特征</p>
+<span class="why"><strong>怎么用</strong>：无需标注的通用视觉特征，适合作为冻结骨干做迁移</span>
+<p style="margin:0"><code>https://github.com/facebookresearch/dinov2</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://pytorch.org/tutorials/" target="_blank" rel="noopener">PyTorch Tutorials</a></h3>
+<span class="tag">文档 · 官方/开源实现</span>
+<p>官方训练循环、迁移学习与部署示例</p>
+<span class="why"><strong>怎么用</strong>：官方迁移学习教程（蚂蚁/蜜蜂二分类），含冻结与微调对照</span>
+<p style="margin:0"><code>https://pytorch.org/tutorials/</code></p>
+</div>
+</div>
+<p class="code-hint">使用约定：以下仓库均为各自维护者的项目，本书与之无从属关系；请阅读其 README 与许可证后再用于课程或生产环境。更多资源见 <a href="#extra-links">扩展学习</a> 与 <a href="../../appendix/index.html">附录 A.3 开源工程总表</a>。</p>
+</section>
+<section id="pitfalls"><h2><span class="sec-num">§</span>常见误区</h2><div class="card warn"><ul><li>微调时对所有层用同一个大学习率：破坏预训练特征，效果可能不如冻结。</li>
+<li>忘记切换 &lt;code&gt;model.eval()&lt;/code&gt; 或忘记 &lt;code&gt;torch.no_grad()&lt;/code&gt;：推理慢且 BN 行为异常。</li>
+<li>只看 Top-1 选模型：边缘设备上大模型可能完全跑不动。</li>
+<li>忽略权重的许可证：研究用权重未必允许商用。</li></ul></div></section>
+<section id="exercises"><h2><span class="sec-num">§</span>习题与思考</h2><ol><li>从 &lt;code&gt;∂L/∂x&lt;/code&gt; 的表达式说明残差连接为何缓解梯度消失，并解释为什么不是“彻底解决”。</li>
+<li>设计一个三行实验表，比较特征提取与微调在小样本（每类 20 张）下的表现差异。</li></ol></section>
+<section id="extra-links"><h2><span class="sec-num">§</span>扩展学习</h2>
+<p>以下资料按本章知识点挑选，可直接精读或对照源码；知识点地图里每一条也挂了 1～2 个直达链接。</p>
+<ul>
+<li><strong>Deep Residual Networks</strong>（分类）：ResNet 原始实现<br><a href="https://github.com/KaimingHe/deep-residual-networks" target="_blank" rel="noopener">Deep Residual Networks</a></li>
+<li><strong>torchvision</strong>（框架）：官方分类/检测/分割模型与数据集变换<br><a href="https://github.com/pytorch/vision" target="_blank" rel="noopener">torchvision</a></li>
+<li><strong>pytorch-image-models (timm)</strong>（分类）：数百个预训练分类骨干与训练脚本<br><a href="https://github.com/huggingface/pytorch-image-models" target="_blank" rel="noopener">pytorch-image-models (timm)</a></li>
+<li><strong>ConvNeXt</strong>（分类）：用现代训练法改造纯卷积骨干<br><a href="https://github.com/facebookresearch/ConvNeXt" target="_blank" rel="noopener">ConvNeXt</a></li>
+<li><strong>Transfer learning</strong>（百科）：预训练与微调的适用条件<br><a href="https://en.wikipedia.org/wiki/Transfer_learning" target="_blank" rel="noopener">Transfer learning</a></li>
+</ul>
+<p class="code-hint">继续扩展：<a href="https://github.com/search?q=transfer%20learning%20image%20classification%20PyTorch&amp;type=repositories" target="_blank" rel="noopener">在 GitHub 检索本章相关开源工程</a> · <a href="https://www.google.com/search?q=transfer%20learning%20image%20classification%20PyTorch" target="_blank" rel="noopener">按本章主题检索资料</a> · <a href="../../index.html#resources">全书参考资源总表</a> · <a href="../../appendix/index.html">附录 A 速查与链接总表</a></p>
+</section>
+<section id="further"><h2><span class="sec-num">§</span>延伸阅读与内链</h2><ul><li><a href='../17-cnn-fundamentals/index.html'>第 17 章 神经网络与 CNN 基础</a></li>
+<li><a href='../19-datasets-evaluation/index.html'>第 19 章 数据集、评价指标与实验方法</a></li>
+<li><a href='../../part4/25-vision-transformers/index.html'>第 25 章 视觉 Transformer 与基础模型</a></li></ul></section>
+<footer class="pager" data-autofill></footer>
+<footer class="site-foot">
+<p class="credits"><strong>作者</strong>：汪亮（bertonwang）　<strong>联系邮箱</strong>：<a href="mailto:47608843@qq.com">47608843@qq.com</a></p>
+<p class="ai-note"><strong>AI 使用说明</strong>：本教材的知识框架、正文、Octave 示例代码与开源工程清单在 AI 辅助下整理生成，并经人工校订与静态自检。公式、数值与运行结果请以GNU Octave 实际输出及权威教材、官方文档为准；发现错漏欢迎通过上方邮箱勘误。</p>
+<p class="imprint">数字图像处理：从经典算法到智能方法 · 上卷每章一个 <code>code/*.m</code> Octave 脚本（由 <code>tools/extract_code.py</code> 从 HTML 同步） · 下卷给出官方开源工程链接 · GNU Octave 为自由软件，本书与之无从属关系。</p>
+</footer>
+</main>
+</body>
+</html>

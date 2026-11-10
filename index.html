@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>总目录 · 数字图像处理：从经典算法到智能方法 | 数字图像处理：从经典算法到智能方法</title>
+<link rel="stylesheet" href="./assets/style.css">
+<script src="./assets/toc.js" defer></script>
+<script src="./assets/app.js" defer></script>
+</head>
+<body data-root="./" data-page="index">
+<aside id="sidebar"></aside>
+<main class="book-page">
+<nav class="breadcrumb" data-autofill>总目录</nav>
+<header class="chapter-head">
+<span class="kicker">Undergraduate → Graduate · Classical Algorithms + AI</span>
+<h1>数字图像处理：从经典算法到智能方法</h1>
+<p class="lede">一本面向本科到研究生的图像处理教材。全书按<strong>上卷 · 传统算法</strong>与<strong>下卷 · AI 算法</strong>分为两部分：上卷把每个算法展开成公式与可运行的 GNU Octave 脚本，下卷给出原理主线与官方开源工程入口。浏览器打开即可读，复制代码即可验证。</p>
+<div class="meta">
+<span class="badge done">全部 27 章已完稿</span>
+<span class="badge done">上卷每章配可运行 Octave 实例</span>
+<span>共 27 章 · 上下两卷 · 1 附录 · 24 个 Octave 实例 · 64 个开源工程</span>
+<span>版本 v0.1 · 2026-11</span>
+</div></header>
+<div class="card note"><span class="card-label">本书的主张</span><p><strong>传统算法</strong>把先验写成公式，<strong>AI 算法</strong>把先验交给数据。两者不是替代关系：数据增强、退化建模、几何约束、评价指标、后处理全部来自上卷，而语义鸿沟与可训练表示是下卷要解决的问题。</p><p style="margin-bottom:0">上卷的学习闭环固定为四步：<strong>读公式 → 跑代码 → 改参数 → 写结论</strong>；下卷的闭环是<strong>读原理 → 跑官方示例 → 换数据集/骨干 → 写消融表</strong>。</p></div>
+<h2 id="howto">如何使用这本教材</h2>
+<table><thead><tr><th style="width:22%">栏目</th><th>作用</th></tr></thead><tbody><tr><td>学习目标</td><td>学完应能做什么，用可检验的动词描述</td></tr><tr><td>知识点地图</td><td>逐条列出本章知识点，每条挂 1～2 个扩展学习链接</td></tr><tr><td>原理小节 §x.y</td><td>概念、直觉、公式推导、对照表</td></tr><tr><td>Octave 实例（上卷）</td><td>完整可运行脚本 + 操作步骤 + 预期数值与判读</td></tr><tr><td>开源工程（下卷）</td><td>官方仓库卡片、推荐用法与最小复现命令</td></tr><tr><td>常见误区 / 习题</td><td>典型错误与可动手验证的思考题</td></tr><tr><td>扩展学习</td><td>本章精读资料、GitHub 检索入口与全书资源总表</td></tr></tbody></table>
+<p class="code-hint">状态徽章：<span class="badge done">已完稿</span> 表示正文、知识点地图、扩展链接与实例齐备；总目录每条还提供直达该章扩展学习小节的「扩展阅读 →」。</p>
+<h2 id="octave">运行 Octave 示例（30 秒）</h2>
+<ol><li>安装 <a href="https://octave.org/download" target="_blank" rel="noopener">GNU Octave</a>（macOS 可用 <code>brew install octave</code>，Linux 用包管理器，Windows 有安装包）。</li><li>在任意上卷章节的「Octave 实例」里点代码块右上角的「复制」，保存为 <code>.m</code>；<strong>或直接使用仓库里同名的 <code>code/*.m</code> 文件</strong>——它们由 <code>tools/extract_code.py</code> 从 HTML 自动抽取，永远与页面一致。</li><li>命令行运行：<code>octave --no-gui --quiet part1/03-gray-transform/code/03-histeq.m</code>。</li><li>批量验证全部示例：<code>IP_HEADLESS=1 ./tools/run_octave.sh</code>——不弹图形窗口，只检查每个脚本能否正常结束并打印数值。</li></ol>
+<div class="card contract"><span class="card-label">给程序员的代码契约</span><ul style="margin-bottom:0"><li><strong>零依赖</strong>：只用 Octave 核心函数，不调用 image 包的 <code>imfilter</code>/<code>edge</code>/<code>imresize</code>，算法主体全部展开。</li><li><strong>自包含</strong>：用 <code>meshgrid</code> 合成测试图像，不依赖任何外部图片素材。</li><li><strong>参数集中</strong>：脚本开头的「参数区」集中所有可调量，先改这里。</li><li><strong>数值可核对</strong>：结尾 <code>printf</code> 打印可手算的量，页面给出预期值。</li><li><strong>可批量验证</strong>：<code>IP_HEADLESS=1</code> 时跳过绘图。</li></ul></div>
+<h2 id="roadmap">学习路线（建议两个学期）</h2>
+<ol class="roadmap"><li><strong>阶段 A · 打好共同语言</strong>（卷首 00～02）：Octave 环境、图像即矩阵、卷积与边界、质量评价。目标：能自己造测试图并预测滤波结果。</li><li><strong>阶段 B · 上卷前段：变换与复原</strong>（03～08）：灰度变换、空域/频域滤波、维纳复原、几何变换、彩色处理。目标：每章能解释参数对输出数值的影响。</li><li><strong>阶段 C · 上卷后段：结构与理解</strong>（09～15）：形态学、边缘、特征、分割、描述、压缩，最后完成一条可交付的颗粒计数流水线。</li><li><strong>阶段 D · 下卷：从基线到系统</strong>（16～26）：传统机器学习基线 → CNN 与骨干 → 数据集与评测 → 分类/检测/分割/复原/生成/基础模型 → 部署与综合项目。目标：能复现官方工程，并完成与传统基线的定量对比。</li></ol>
+<p>时间有限时的最短路径：<a href="part0/01-octave-setup/index.html">01</a> → <a href="part0/02-image-basics/index.html">02</a> → <a href="part1/04-spatial-filter/index.html">04</a> → <a href="part1/05-frequency-domain/index.html">05</a> → <a href="part2/15-classical-pipeline/index.html">15</a> → <a href="part3/17-cnn-fundamentals/index.html">17</a> → <a href="part3/19-datasets-evaluation/index.html">19</a> → <a href="part4/26-projects/index.html">26</a>。</p>
+<h2 id="toc">全书目录</h2>
+<p class="lede">每一章一个文件夹，内含 <code>index.html</code>（知识讲解）；上卷章节另含 <code>code/*.m</code>（可直接运行的 Octave 脚本）。</p>
+<section class="toc-part"><h2><span class="part-id">卷首</span>工具与约定</h2>
+<ul class="toc-list">
+<li>
+<div class="toc-head"><span class="num">00</span><a class="toc-title" href="part0/00-preface/index.html">绪论：两条路线，一本书</a> <a class="toc-extra" href="part0/00-preface/index.html#extra-links">扩展阅读 →</a><span class="badge done">已完稿</span></div>
+<p class="toc-desc">把图像处理拆成上卷的可推导算法与下卷的可复现工程：前者要能手推、能跑、能改，后者要能找准原理与官方实现。</p>
+<ul class="toc-points"><li>两条路线的分工</li><li>本书结构与学习闭环</li><li>给程序员的阅读约定</li><li>先修数学清单</li><li>符号与坐标约定</li><li>AI 使用说明</li></ul>
+</li>
+<li>
+<div class="toc-head"><span class="num">01</span><a class="toc-title" href="part0/01-octave-setup/index.html">GNU Octave 环境与图像 I/O</a> <a class="toc-extra" href="part0/01-octave-setup/index.html#extra-links">扩展阅读 →</a><span class="badge done">已完稿</span></div>
+<p class="toc-desc">装好环境、统一数据类型、学会造测试图：这一章决定后面 14 章的代码能不能一次跑通。</p>
+<ul class="toc-points"><li>安装与两种运行方式</li><li>图像即矩阵：坐标与索引</li><li>数据类型与范围约定</li><li>显示与保存</li><li>合成测试图像</li><li>一键验证脚本</li></ul>
+</li>
+<li>
+<div class="toc-head"><span class="num">02</span><a class="toc-title" href="part0/02-image-basics/index.html">图像的数学表示与运算约定</a> <a class="toc-extra" href="part0/02-image-basics/index.html#extra-links">扩展阅读 →</a><span class="badge done">已完稿</span></div>
+<p class="toc-desc">采样量化、卷积与相关、边界处理、质量评价：把后面所有章节共用的四件事一次讲清。</p>
+<ul class="toc-points"><li>采样与量化</li><li>直方图与统计量</li><li>卷积与相关</li><li>边界填充策略</li><li>线性移不变系统</li><li>MSE / PSNR / SSIM</li></ul>
+</li>
+</ul></section>
+<div class="volume-banner"><h2>上卷 · 传统算法</h2><p>第 03～15 章。原理可推导、代码可运行、结果可手算核对：每章至少配一个零依赖的 GNU Octave 实例，输出可验证的数值。</p></div>
+<section class="toc-part"><h2><span class="part-id">第一篇</span>基础变换与增强</h2>
+<ul class="toc-list">
+<li>
+<div class="toc-head"><span class="num">03</span><a class="toc-title" href="part1/03-gray-transform/index.html">灰度变换与直方图</a> <a class="toc-extra" href="part1/03-gray-transform/index.html#extra-links">扩展阅读 →</a><span class="badge done">已完稿</span></div>
+<p class="toc-desc">从点运算到直方图均衡：第一个“能推公式、能看效果、能打印数值”的完整算法。</p>
+<ul class="toc-points"><li>点运算与灰度映射</li><li>gamma 校正</li><li>直方图与 CDF</li><li>直方图均衡化推导</li><li>离散实现与均匀性</li><li>CLAHE 与规定化</li></ul>
+</li>
+<li>
+<div class="toc-head"><span class="num">04</span><a class="toc-title" href="part1/04-spatial-filter/index.html">空间域滤波</a> <a class="toc-extra" href="part1/04-spatial-filter/index.html#extra-links">扩展阅读 →</a><span class="badge done">已完稿</span></div>
+<p class="toc-desc">从构造一个高斯核开始，把线性平滑、非线性去噪与锐化统一到“邻域加权”这一个动作上。</p>
+<ul class="toc-points"><li>线性滤波与卷积核</li><li>高斯核与可分离性</li><li>边界处理</li><li>中值与排序统计</li><li>拉普拉斯锐化</li><li>双边滤波</li></ul>
+</li>
+<li>
+<div class="toc-head"><span class="num">05</span><a class="toc-title" href="part1/05-frequency-domain/index.html">频域处理</a> <a class="toc-extra" href="part1/05-frequency-domain/index.html#extra-links">扩展阅读 →</a><span class="badge done">已完稿</span></div>
+<p class="toc-desc">把图像看成不同频率的正弦叠加：一次 FFT，就能把卷积变成乘法、把模糊变成衰减、把结构存进相位。</p>
+<ul class="toc-points"><li>二维 DFT 与 FFT</li><li>fftshift 与频率坐标</li><li>幅度谱与相位谱</li><li>频域滤波四步法</li><li>理想/高斯/巴特沃斯</li><li>陷波与周期边界</li><li>相位交换实验</li></ul>
+</li>
+<li>
+<div class="toc-head"><span class="num">06</span><a class="toc-title" href="part1/06-restoration/index.html">图像复原与去噪</a> <a class="toc-extra" href="part1/06-restoration/index.html#extra-links">扩展阅读 →</a><span class="badge done">已完稿</span></div>
+<p class="toc-desc">先把退化写成公式，再谈复原：逆滤波为什么会炸、维纳滤波加的那一项到底在压制什么。</p>
+<ul class="toc-points"><li>退化模型 g=h*f+n</li><li>噪声模型与估计</li><li>逆滤波的病态性</li><li>维纳滤波推导</li><li>参数 K 的折中</li><li>复原评价与伪影</li></ul>
+</li>
+<li>
+<div class="toc-head"><span class="num">07</span><a class="toc-title" href="part1/07-geometry-registration/index.html">几何变换与图像配准</a> <a class="toc-extra" href="part1/07-geometry-registration/index.html#extra-links">扩展阅读 →</a><span class="badge done">已完稿</span></div>
+<p class="toc-desc">齐次坐标把平移旋转缩放统一成矩阵乘法；反向映射加插值，才不会在新图上留下空洞。</p>
+<ul class="toc-points"><li>齐次坐标</li><li>仿射与透视变换</li><li>反向映射</li><li>最近邻/双线性插值</li><li>配准流程与相似度</li><li>RANSAC 与外点</li></ul>
+</li>
+<li>
+<div class="toc-head"><span class="num">08</span><a class="toc-title" href="part1/08-color/index.html">彩色与多通道处理</a> <a class="toc-extra" href="part1/08-color/index.html#extra-links">扩展阅读 →</a><span class="badge done">已完稿</span></div>
+<p class="toc-desc">RGB 只是坐标之一：换到 HSV/Lab 之后，很多“难做的阈值”会变成一次简单的范围判断。</p>
+<ul class="toc-points"><li>RGB 与加色模型</li><li>HSV / Lab / YCbCr</li><li>灰度化与亮度权重</li><li>颜色分割与阈值</li><li>灰度世界白平衡</li><li>色彩恒常性</li></ul>
+</li>
+</ul></section>
+<section class="toc-part"><h2><span class="part-id">第二篇</span>结构分析与理解</h2>
+<ul class="toc-list">
+<li>
+<div class="toc-head"><span class="num">09</span><a class="toc-title" href="part2/09-morphology/index.html">数学形态学</a> <a class="toc-extra" href="part2/09-morphology/index.html#extra-links">扩展阅读 →</a><span class="badge done">已完稿</span></div>
+<p class="toc-desc">用集合的视角处理形状：腐蚀、膨胀、开、闭四个动作，就能完成去噪、填洞、分离粘连目标。</p>
+<ul class="toc-points"><li>结构元素</li><li>腐蚀与膨胀</li><li>对偶性</li><li>开运算与闭运算</li><li>连通域标记</li><li>距离变换与分水岭</li></ul>
+</li>
+<li>
+<div class="toc-head"><span class="num">10</span><a class="toc-title" href="part2/10-edge-detection/index.html">边缘检测</a> <a class="toc-extra" href="part2/10-edge-detection/index.html#extra-links">扩展阅读 →</a><span class="badge done">已完稿</span></div>
+<p class="toc-desc">边缘是图像的一阶导数极值、二阶导数过零；Canny 把这条数学事实变成了五个可调试的工程步骤。</p>
+<ul class="toc-points"><li>边缘的数学模型</li><li>梯度算子 Sobel / Prewitt</li><li>梯度幅值与方向</li><li>LoG 与尺度空间</li><li>Canny 五步流程</li><li>非极大抑制</li><li>双阈值与滞后连接</li></ul>
+</li>
+<li>
+<div class="toc-head"><span class="num">11</span><a class="toc-title" href="part2/11-features/index.html">局部特征、匹配与 Hough 变换</a> <a class="toc-extra" href="part2/11-features/index.html#extra-links">扩展阅读 →</a><span class="badge done">已完稿</span></div>
+<p class="toc-desc">把“这块图像”变成可比较的向量：Harris 找位置，SIFT/ORB 给描述，RANSAC 负责在错误匹配里挑出正确模型。</p>
+<ul class="toc-points"><li>自相关矩阵与 Harris</li><li>尺度空间与 DoG</li><li>SIFT / SURF / ORB</li><li>描述子匹配与比值测试</li><li>RANSAC 估计单应</li><li>Hough 参数空间投票</li></ul>
+</li>
+<li>
+<div class="toc-head"><span class="num">12</span><a class="toc-title" href="part2/12-segmentation/index.html">图像分割</a> <a class="toc-extra" href="part2/12-segmentation/index.html#extra-links">扩展阅读 →</a><span class="badge done">已完稿</span></div>
+<p class="toc-desc">从 Otsu 的一个阈值到水平集的一条演化曲线：分割方法的选择，取决于你能对图像写出多强的先验。</p>
+<ul class="toc-points"><li>全局阈值与 Otsu</li><li>自适应阈值</li><li>区域生长与分水岭</li><li>k-means 颜色聚类</li><li>图割与能量最小化</li><li>活动轮廓与水平集</li></ul>
+</li>
+<li>
+<div class="toc-head"><span class="num">13</span><a class="toc-title" href="part2/13-descriptors/index.html">表示、描述与纹理</a> <a class="toc-extra" href="part2/13-descriptors/index.html#extra-links">扩展阅读 →</a><span class="badge done">已完稿</span></div>
+<p class="toc-desc">分割给出“哪些像素”，描述给出“是什么形状、什么纹理”：把图像压成可比较、可分类的特征向量。</p>
+<ul class="toc-points"><li>边界表示与链码</li><li>面积、质心与矩</li><li>Hu 不变矩</li><li>LBP 局部二值模式</li><li>GLCM 与 Haralick 特征</li><li>特征向量与分类接口</li></ul>
+</li>
+<li>
+<div class="toc-head"><span class="num">14</span><a class="toc-title" href="part2/14-compression/index.html">图像压缩与编码</a> <a class="toc-extra" href="part2/14-compression/index.html#extra-links">扩展阅读 →</a><span class="badge done">已完稿</span></div>
+<p class="toc-desc">信息熵给下限，DCT 给能量集中，量化给有损：JPEG 的每一步都对应一个可以算出来的代价。</p>
+<ul class="toc-points"><li>信息熵与率失真</li><li>无损编码 Huffman / RLE</li><li>DCT 与能量集中</li><li>量化与量化表</li><li>Zigzag 与游程</li><li>JPEG 全流程</li><li>块效应与 JPEG2000</li></ul>
+</li>
+<li>
+<div class="toc-head"><span class="num">15</span><a class="toc-title" href="part2/15-classical-pipeline/index.html">传统算法综合实验：颗粒计数流水线</a> <a class="toc-extra" href="part2/15-classical-pipeline/index.html#extra-links">扩展阅读 →</a><span class="badge done">已完稿</span></div>
+<p class="toc-desc">把前 12 章串成一条可交付的流水线：输入一张图，输出一张带面积、圆度与计数的统计表。</p>
+<ul class="toc-points"><li>任务定义与验收指标</li><li>流水线四段结构</li><li>参数表与消融实验</li><li>测量与统计输出</li><li>可复现性记录</li><li>失效模式与改进</li></ul>
+</li>
+</ul></section>
+<div class="volume-banner lower"><h2>下卷 · AI 算法</h2><p>第 16～26 章。原理简介 + 官方开源工程链接 + 最小复现命令；重点放在方法脉络、评价指标与工程取舍，而不是重造轮子。</p></div>
+<section class="toc-part"><h2><span class="part-id">第三篇</span>从特征到深度网络</h2>
+<ul class="toc-list">
+<li>
+<div class="toc-head"><span class="num">16</span><a class="toc-title" href="part3/16-learning-baselines/index.html">从手工特征到学习</a> <a class="toc-extra" href="part3/16-learning-baselines/index.html#extra-links">扩展阅读 →</a><span class="badge done">已完稿</span></div>
+<p class="toc-desc">上卷把图像变成特征向量，这一章把它们送进分类器：先建立可解释的传统基线，再说明它为什么会被表示学习取代。</p>
+<ul class="toc-points"><li>特征工程与 BoVW</li><li>VLAD / Fisher Vector</li><li>SVM 与核方法</li><li>随机森林与 kNN</li><li>偏差-方差与交叉验证</li><li>类别不平衡</li><li>语义鸿沟</li></ul>
+</li>
+<li>
+<div class="toc-head"><span class="num">17</span><a class="toc-title" href="part3/17-cnn-fundamentals/index.html">神经网络与 CNN 基础</a> <a class="toc-extra" href="part3/17-cnn-fundamentals/index.html#extra-links">扩展阅读 →</a><span class="badge done">已完稿</span></div>
+<p class="toc-desc">卷积层只是带权值共享的线性层；真正让深度网络可训练的是反向传播、归一化与一整套训练配方。</p>
+<ul class="toc-points"><li>神经元与激活函数</li><li>卷积层与感受野</li><li>池化与下采样</li><li>反向传播与自动微分</li><li>损失函数与优化器</li><li>批归一化与 Dropout</li><li>数据增强与正则</li></ul>
+</li>
+<li>
+<div class="toc-head"><span class="num">18</span><a class="toc-title" href="part3/18-cnn-architectures/index.html">经典 CNN 架构与迁移学习</a> <a class="toc-extra" href="part3/18-cnn-architectures/index.html#extra-links">扩展阅读 →</a><span class="badge done">已完稿</span></div>
+<p class="toc-desc">从 LeNet 到 ConvNeXt 是一条不断回答“怎样堆得更深、更省、更好训练”的路线；迁移学习让这些骨干能用在小数据集上。</p>
+<ul class="toc-points"><li>LeNet / AlexNet / VGG</li><li>Inception 与多尺度</li><li>ResNet 与残差连接</li><li>DenseNet / EfficientNet</li><li>ConvNeXt 与现代训练法</li><li>特征提取 vs 微调</li><li>预训练权重与领域差距</li></ul>
+</li>
+<li>
+<div class="toc-head"><span class="num">19</span><a class="toc-title" href="part3/19-datasets-evaluation/index.html">数据集、评价指标与实验方法</a> <a class="toc-extra" href="part3/19-datasets-evaluation/index.html#extra-links">扩展阅读 →</a><span class="badge done">已完稿</span></div>
+<p class="toc-desc">指标定义决定优化方向：先约定“什么算对”，再谈模型；这一章也是全书从算法走向工程的分界线。</p>
+<ul class="toc-points"><li>ImageNet / COCO / VOC / Cityscapes</li><li>标注类型与格式</li><li>数据集划分与泄漏</li><li>Top-k / PR / F1</li><li>mAP 与 IoU</li><li>Dice / PSNR / SSIM / FID</li><li>消融与复现清单</li></ul>
+</li>
+</ul></section>
+<section class="toc-part"><h2><span class="part-id">第四篇</span>视觉任务与工程落地</h2>
+<ul class="toc-list">
+<li>
+<div class="toc-head"><span class="num">20</span><a class="toc-title" href="part4/20-classification-xai/index.html">图像分类与可解释性</a> <a class="toc-extra" href="part4/20-classification-xai/index.html#extra-links">扩展阅读 →</a><span class="badge done">已完稿</span></div>
+<p class="toc-desc">训练配方决定上限，误差分析决定改进方向，可解释性决定你能不能信任这个结果。</p>
+<ul class="toc-points"><li>训练配方与学习率调度</li><li>混合精度与 EMA</li><li>混淆矩阵与误差分析</li><li>标签噪声与长尾</li><li>Grad-CAM 与归因方法</li><li>分布外与校准</li></ul>
+</li>
+<li>
+<div class="toc-head"><span class="num">21</span><a class="toc-title" href="part4/21-object-detection/index.html">目标检测</a> <a class="toc-extra" href="part4/21-object-detection/index.html#extra-links">扩展阅读 →</a><span class="badge done">已完稿</span></div>
+<p class="toc-desc">从“先找候选框再分类”到“一次前向直接出框”，再到“用集合预测去掉所有手工组件”，是一条不断删掉人工先验的路。</p>
+<ul class="toc-points"><li>任务定义与框表示</li><li>IoU / NMS / mAP</li><li>R-CNN 家族</li><li>YOLO / SSD / RetinaNet</li><li>Focal Loss 与类别不平衡</li><li>Anchor-free 与 FCOS</li><li>DETR 与集合预测</li><li>开放词表检测</li></ul>
+</li>
+<li>
+<div class="toc-head"><span class="num">22</span><a class="toc-title" href="part4/22-segmentation-networks/index.html">深度图像分割</a> <a class="toc-extra" href="part4/22-segmentation-networks/index.html#extra-links">扩展阅读 →</a><span class="badge done">已完稿</span></div>
+<p class="toc-desc">从逐像素分类到掩码分类，再到“给个提示就出掩码”：分割的演进本质是输出表示方式的演进。</p>
+<ul class="toc-points"><li>语义/实例/全景分割</li><li>FCN 与全卷积</li><li>U-Net 与跳跃连接</li><li>空洞卷积与 ASPP</li><li>Mask R-CNN</li><li>Mask2Former 掩码分类</li><li>SAM 与可提示分割</li></ul>
+</li>
+<li>
+<div class="toc-head"><span class="num">23</span><a class="toc-title" href="part4/23-deep-restoration/index.html">深度复原与超分辨率</a> <a class="toc-extra" href="part4/23-deep-restoration/index.html#extra-links">扩展阅读 →</a><span class="badge done">已完稿</span></div>
+<p class="toc-desc">上卷用维纳滤波写出显式先验，这里用数据学出先验：同一个病态逆问题，换了一种正则化方式。</p>
+<ul class="toc-points"><li>病态逆问题与学习先验</li><li>DnCNN 与残差去噪</li><li>噪声水平图与非盲/盲去噪</li><li>SRCNN / EDSR</li><li>ESRGAN 与感知损失</li><li>真实退化建模</li><li>PSNR 与感知质量的分歧</li></ul>
+</li>
+<li>
+<div class="toc-head"><span class="num">24</span><a class="toc-title" href="part4/24-generative-models/index.html">生成模型与图像翻译</a> <a class="toc-extra" href="part4/24-generative-models/index.html#extra-links">扩展阅读 →</a><span class="badge done">已完稿</span></div>
+<p class="toc-desc">自编码器学压缩，GAN 学判别器看不见的真实性，扩散模型学逐步去噪：三条路线对应三种不同的概率建模方式。</p>
+<ul class="toc-points"><li>自编码器与 VAE</li><li>ELBO 与重参数化</li><li>GAN 极小极大博弈</li><li>pix2pix / CycleGAN</li><li>StyleGAN 与潜在空间</li><li>DDPM 与扩散过程</li><li>LDM / Stable Diffusion</li><li>FID 与可控生成</li></ul>
+</li>
+<li>
+<div class="toc-head"><span class="num">25</span><a class="toc-title" href="part4/25-vision-transformers/index.html">视觉 Transformer 与基础模型</a> <a class="toc-extra" href="part4/25-vision-transformers/index.html#extra-links">扩展阅读 →</a><span class="badge done">已完稿</span></div>
+<p class="toc-desc">把卷积的归纳偏置换成注意力 + 大规模预训练：模型更通用，也更依赖数据与算力。</p>
+<ul class="toc-points"><li>patch embedding</li><li>自注意力与复杂度</li><li>位置编码</li><li>ViT vs CNN 归纳偏置</li><li>Swin 层级化窗口注意力</li><li>MAE / DINOv2 自监督</li><li>CLIP 图文对比</li><li>Prompt / Adapter / LoRA</li></ul>
+</li>
+<li>
+<div class="toc-head"><span class="num">26</span><a class="toc-title" href="part4/26-projects/index.html">工程落地与综合项目</a> <a class="toc-extra" href="part4/26-projects/index.html#extra-links">扩展阅读 →</a><span class="badge done">已完稿</span></div>
+<p class="toc-desc">把模型变成可维护的系统：导出、加速、压缩、数据闭环，以及一个必须与传统基线同台对比的课程设计。</p>
+<ul class="toc-points"><li>训练到部署链路</li><li>ONNX 与算子兼容</li><li>推理引擎选型</li><li>量化 PTQ / QAT</li><li>剪枝与蒸馏</li><li>标注质检与数据版本</li><li>监控与回归测试</li><li>传统基线 vs 深度基线</li><li>伦理与偏差</li></ul>
+</li>
+</ul></section>
+<section class="toc-part"><h2><span class="part-id">附录</span>速查与资源总表</h2>
+<ul class="toc-list">
+<li>
+<div class="toc-head"><span class="num">A</span><a class="toc-title" href="appendix/index.html">附录 · 速查与资源总表</a> <a class="toc-extra" href="appendix/index.html#extra-links">扩展阅读 →</a><span class="badge done">已完稿</span></div>
+<p class="toc-desc">Octave 函数索引、传统算法速查、术语对照、调试清单与全书开源工程/扩展链接总表。</p>
+<ul class="toc-points"><li>Octave 核心函数速查</li><li>传统算法速查表</li><li>开源工程总表</li><li>术语中英对照</li><li>常见错误与调试</li><li>参考教材与课程</li><li>扩展学习链接总表</li></ul>
+</li>
+</ul></section>
+<h2 id="resources">参考资源</h2>
+<p class="lede">以下为全书高频引用的官方文档、课程、数据集与代码库；完整清单见<a href="appendix/index.html">附录 A.7 扩展学习链接总表</a>。</p>
+<div class="repo-grid">
+<div class="repo-card"><h3><a href="https://octave.org/" target="_blank" rel="noopener">GNU Octave</a></h3><span class="tag">工具</span><p>免费、与 MATLAB 语法高度兼容的科学计算环境，本书上卷代码的目标平台</p><p style="margin:0"><code>https://octave.org/</code></p></div>
+<div class="repo-card"><h3><a href="https://docs.octave.org/latest/" target="_blank" rel="noopener">Octave 官方文档</a></h3><span class="tag">文档</span><p>函数参考与语言手册，查 conv2/fft2/imagesc 的权威出处</p><p style="margin:0"><code>https://docs.octave.org/latest/</code></p></div>
+<div class="repo-card"><h3><a href="https://scikit-image.org/" target="_blank" rel="noopener">scikit-image</a></h3><span class="tag">工具</span><p>Python 图像处理库，对照阅读每类传统算法的生产级实现</p><p style="margin:0"><code>https://scikit-image.org/</code></p></div>
+<div class="repo-card"><h3><a href="https://scikit-image.org/docs/stable/user_guide/" target="_blank" rel="noopener">scikit-image User Guide</a></h3><span class="tag">文档</span><p>按任务组织的传统算法讲解，适合与本书章节互相对照</p><p style="margin:0"><code>https://scikit-image.org/docs/stable/user_guide/</code></p></div>
+<div class="repo-card"><h3><a href="https://github.com/opencv/opencv" target="_blank" rel="noopener">OpenCV 官方仓库</a></h3><span class="tag">工具</span><p>工业界最常用的计算机视觉库，源码与示例均可直接查阅</p><p style="margin:0"><code>https://github.com/opencv/opencv</code></p></div>
+<div class="repo-card"><h3><a href="https://docs.opencv.org/master/d6/d00/tutorial_py_root.html" target="_blank" rel="noopener">OpenCV Tutorials</a></h3><span class="tag">文档</span><p>官方教程，含滤波、形态学、特征与几何变换的示例</p><p style="margin:0"><code>https://docs.opencv.org/master/d6/d00/tutorial_py_root.html</code></p></div>
+<div class="repo-card"><h3><a href="https://cs231n.github.io/" target="_blank" rel="noopener">Stanford CS231n</a></h3><span class="tag">课程</span><p>经典视觉课程笔记，下卷最好的免费配套教材</p><p style="margin:0"><code>https://cs231n.github.io/</code></p></div>
+<div class="repo-card"><h3><a href="https://d2l.ai/" target="_blank" rel="noopener">动手学深度学习 d2l.ai</a></h3><span class="tag">课程</span><p>含可运行代码的深度学习教材，中文版可用</p><p style="margin:0"><code>https://d2l.ai/</code></p></div>
+<div class="repo-card"><h3><a href="https://github.com/pytorch/pytorch" target="_blank" rel="noopener">PyTorch</a></h3><span class="tag">框架</span><p>主流深度学习框架</p><p style="margin:0"><code>https://github.com/pytorch/pytorch</code></p></div>
+<div class="repo-card"><h3><a href="https://pytorch.org/tutorials/" target="_blank" rel="noopener">PyTorch Tutorials</a></h3><span class="tag">文档</span><p>官方训练循环、迁移学习与部署示例</p><p style="margin:0"><code>https://pytorch.org/tutorials/</code></p></div>
+<div class="repo-card"><h3><a href="https://github.com/pytorch/vision" target="_blank" rel="noopener">torchvision</a></h3><span class="tag">框架</span><p>官方分类/检测/分割模型与数据集变换</p><p style="margin:0"><code>https://github.com/pytorch/vision</code></p></div>
+<div class="repo-card"><h3><a href="https://github.com/huggingface/pytorch-image-models" target="_blank" rel="noopener">pytorch-image-models (timm)</a></h3><span class="tag">分类</span><p>数百个预训练分类骨干与训练脚本</p><p style="margin:0"><code>https://github.com/huggingface/pytorch-image-models</code></p></div>
+<div class="repo-card"><h3><a href="https://github.com/open-mmlab/mmdetection" target="_blank" rel="noopener">MMDetection</a></h3><span class="tag">检测</span><p>检测算法全家桶与配置文件化实验</p><p style="margin:0"><code>https://github.com/open-mmlab/mmdetection</code></p></div>
+<div class="repo-card"><h3><a href="https://github.com/open-mmlab/mmsegmentation" target="_blank" rel="noopener">MMSegmentation</a></h3><span class="tag">分割</span><p>语义分割算法全家桶</p><p style="margin:0"><code>https://github.com/open-mmlab/mmsegmentation</code></p></div>
+<div class="repo-card"><h3><a href="https://github.com/huggingface/diffusers" target="_blank" rel="noopener">Hugging Face Diffusers</a></h3><span class="tag">生成</span><p>扩散模型推理与训练管线</p><p style="margin:0"><code>https://github.com/huggingface/diffusers</code></p></div>
+<div class="repo-card"><h3><a href="https://paperswithcode.com/" target="_blank" rel="noopener">Papers with Code</a></h3><span class="tag">文档</span><p>按任务查 SOTA 方法与官方代码仓库</p><p style="margin:0"><code>https://paperswithcode.com/</code></p></div>
+<div class="repo-card"><h3><a href="https://www.image-net.org/" target="_blank" rel="noopener">ImageNet</a></h3><span class="tag">数据集</span><p>分类与预训练的标准大数据集</p><p style="margin:0"><code>https://www.image-net.org/</code></p></div>
+<div class="repo-card"><h3><a href="https://cocodataset.org/" target="_blank" rel="noopener">MS COCO</a></h3><span class="tag">数据集</span><p>检测 / 实例分割 / 关键点标准评测集</p><p style="margin:0"><code>https://cocodataset.org/</code></p></div>
+<div class="repo-card"><h3><a href="https://arxiv.org/" target="_blank" rel="noopener">arXiv</a></h3><span class="tag">文档</span><p>预印本检索；下卷各章论文的主要出处</p><p style="margin:0"><code>https://arxiv.org/</code></p></div>
+<div class="repo-card"><h3><a href="https://imagej.net/" target="_blank" rel="noopener">ImageJ / Fiji</a></h3><span class="tag">工具</span><p>科研图像测量与批处理工具，适合做人工核对</p><p style="margin:0"><code>https://imagej.net/</code></p></div>
+</div>
+<h2 id="contribute">维护约定</h2>
+<p>全书由结构化数据生成，<strong>不要直接编辑章节 HTML</strong>，否则下次重建会被覆盖。改完数据后依次运行：<code>python3 tools/build_book.py --force</code> → <code>python3 tools/extract_code.py</code> → <code>python3 tools/check_book.py</code>。</p>
+<table><thead><tr><th style="width:26%">想改什么</th><th>编辑哪里</th></tr></thead><tbody><tr><td>细化某章正文或 Octave 示例</td><td><code>tools/chapters_*.py</code> 中对应的 <code>C(...)</code></td></tr><tr><td>加扩展链接 / 开源工程</td><td><code>tools/book_resources.py</code> 的 <code>R</code>、<code>TOPIC_RULES</code>、<code>CHAPTER_RESOURCES</code>，以及章节的 <code>repos</code></td></tr><tr><td>调整页面结构与总目录</td><td><code>tools/build_book.py</code> 的 <code>render()</code> / <code>render_index()</code></td></tr><tr><td>样式与交互</td><td><code>assets/style.css</code>、<code>assets/app.js</code></td></tr><tr><td>新增章节或分篇</td><td><code>tools/book_schema.py</code> 的 <code>PARTS</code> + 对应 <code>chapters_*.py</code>，再重建（<code>toc.js</code> 会自动同步）</td></tr><tr><td>验证 Octave 示例</td><td><code>IP_HEADLESS=1 ./tools/run_octave.sh</code>（需本机安装 Octave）</td></tr></tbody></table>
+<footer class="site-foot">
+<p class="credits"><strong>作者</strong>：汪亮（bertonwang）　<strong>联系邮箱</strong>：<a href="mailto:47608843@qq.com">47608843@qq.com</a></p>
+<p class="ai-note"><strong>AI 使用说明</strong>：本教材的知识框架、正文、Octave 示例代码与开源工程清单在 AI 辅助下整理生成，并经人工校订与静态自检。公式、数值与运行结果请以GNU Octave 实际输出及权威教材、官方文档为准；发现错漏欢迎通过上方邮箱勘误。</p>
+<p class="imprint">数字图像处理：从经典算法到智能方法 · 上卷每章一个 <code>code/*.m</code> Octave 脚本（由 <code>tools/extract_code.py</code> 从 HTML 同步） · 下卷给出官方开源工程链接 · GNU Octave 为自由软件，本书与之无从属关系。</p>
+</footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第 16 章 · 从手工特征到学习 | 数字图像处理：从经典算法到智能方法</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script src="../../assets/toc.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</head>
+<body data-root="../../" data-chapter="16">
+<aside id="sidebar"></aside>
+<main class="book-page">
+<nav class="breadcrumb" data-autofill>总目录</nav>
+<header class="chapter-head">
+<span class="kicker">第三篇 · 从特征到深度网络</span>
+<h1><span class="ch-num">第 16 章</span>从手工特征到学习</h1>
+<p class="lede">上卷把图像变成特征向量，这一章把它们送进分类器：先建立可解释的传统基线，再说明它为什么会被表示学习取代。</p>
+<div class="meta">
+<span class="badge done">已完稿</span>
+<span>建议 3 学时</span>
+<span>6 个开源工程</span>
+<span class="badge lower">下卷 · AI 算法</span>
+<span>数字图像处理：从经典算法到智能方法</span>
+</div></header>
+<div class="card objectives"><span class="card-label">学习目标</span><ul>
+<li>能说清 BoVW / VLAD 如何把局部描述子汇成全局向量</li>
+<li>能为给定任务选择 SVM、随机森林或 kNN 并说明理由</li>
+<li>能设计交叉验证与类别不平衡的处理方案</li>
+<li>能解释语义鸿沟与维度灾难，指出表示学习的切入点</li>
+</ul></div>
+<section id="map"><h2><span class="sec-num">§</span>知识点地图</h2>
+<p class="code-hint">每个知识点都配了 1～2 个扩展学习链接；本章完整资源清单见 <a href="#extra-links">扩展学习</a>。</p>
+<table><thead><tr><th style="width:44px">#</th><th style="width:26%">知识点</th><th>扩展学习</th><th style="width:100px">状态</th></tr></thead><tbody>
+<tr><td>1</td><td>特征工程与 BoVW</td><td><a href="https://en.wikipedia.org/wiki/Scale-invariant_feature_transform" target="_blank" rel="noopener">Scale-invariant feature transform</a> · <a href="https://github.com/scikit-learn/scikit-learn" target="_blank" rel="noopener">scikit-learn</a></td><td>正文已覆盖</td></tr>
+<tr><td>2</td><td>VLAD / Fisher Vector</td><td><a href="https://en.wikipedia.org/wiki/Scale-invariant_feature_transform" target="_blank" rel="noopener">Scale-invariant feature transform</a> · <a href="https://github.com/scikit-learn/scikit-learn" target="_blank" rel="noopener">scikit-learn</a></td><td>正文已覆盖</td></tr>
+<tr><td>3</td><td>SVM 与核方法</td><td><a href="https://github.com/scikit-learn/scikit-learn" target="_blank" rel="noopener">scikit-learn</a> · <a href="https://cs231n.github.io/" target="_blank" rel="noopener">Stanford CS231n</a></td><td>正文已覆盖</td></tr>
+<tr><td>4</td><td>随机森林与 kNN</td><td><a href="https://en.wikipedia.org/wiki/Scale-invariant_feature_transform" target="_blank" rel="noopener">Scale-invariant feature transform</a> · <a href="https://github.com/scikit-learn/scikit-learn" target="_blank" rel="noopener">scikit-learn</a></td><td>正文已覆盖</td></tr>
+<tr><td>5</td><td>偏差-方差与交叉验证</td><td><a href="https://en.wikipedia.org/wiki/Scale-invariant_feature_transform" target="_blank" rel="noopener">Scale-invariant feature transform</a> · <a href="https://github.com/scikit-learn/scikit-learn" target="_blank" rel="noopener">scikit-learn</a></td><td>正文已覆盖</td></tr>
+<tr><td>6</td><td>类别不平衡</td><td><a href="https://en.wikipedia.org/wiki/Scale-invariant_feature_transform" target="_blank" rel="noopener">Scale-invariant feature transform</a> · <a href="https://github.com/scikit-learn/scikit-learn" target="_blank" rel="noopener">scikit-learn</a></td><td>正文已覆盖</td></tr>
+<tr><td>7</td><td>语义鸿沟</td><td><a href="https://en.wikipedia.org/wiki/Scale-invariant_feature_transform" target="_blank" rel="noopener">Scale-invariant feature transform</a> · <a href="https://github.com/scikit-learn/scikit-learn" target="_blank" rel="noopener">scikit-learn</a></td><td>正文已覆盖</td></tr>
+</tbody></table></section>
+<section id="s16-1"><h2><span class="sec-num">§16.1</span>把局部特征汇成全局向量</h2>
+<p>第 11、13 章给出的 SIFT、LBP、Hu 矩是<strong>局部或单个目标</strong>的描述，而分类需要整幅图一个定长向量。经典做法是<strong>视觉词袋（BoVW）</strong>：</p>
+<ol><li>从训练图提取大量局部描述子，k-means 聚成 K 个“视觉单词”（码本）。</li>
+<li>每张图的描述子量化到最近单词，统计词频直方图（常加 TF-IDF 加权）。</li>
+<li>用直方图训练分类器。</li></ol>
+<p><strong>VLAD</strong> 记录每个描述子相对聚类中心的残差之和，<strong>Fisher Vector</strong> 用高斯混合模型的梯度表示，二者保留了比词频更丰富的信息，在深度学习普及前是图像检索与分类的 SOTA。</p>
+</section>
+<section id="s16-2"><h2><span class="sec-num">§16.2</span>分类器与偏差-方差</h2>
+<table><thead><tr><th>分类器</th><th>假设</th><th>何时用</th></tr></thead><tbody>
+<tr><td>SVM（RBF 核）</td><td>存在最大间隔超平面</td><td>样本不多、特征维度中等；需调 C 与 γ</td></tr>
+<tr><td>随机森林</td><td>特征可轴对齐划分</td><td>混合类型特征、需要特征重要度、抗过拟合</td></tr>
+<tr><td>kNN</td><td>同类样本在特征空间邻近</td><td>作为最简单基线；高维时距离失效</td></tr>
+<tr><td>Logistic 回归</td><td>线性可分</td><td>必须有的下限基线，训练极快</td></tr>
+</tbody></table>
+<p>模型复杂度与泛化误差的关系仍是<strong>偏差-方差分解</strong>：容量太小欠拟合，太大过拟合，正则化与交叉验证是在两者间找位置。类别不平衡时要改看 PR 曲线、F1 与每类召回，而不是只看总体准确率。</p>
+</section>
+<section id="s16-3"><h2><span class="sec-num">§16.3</span>为什么必须走向表示学习</h2>
+<ul><li><strong>语义鸿沟</strong>：像素/梯度统计与“这是一只猫”之间没有可写的映射规则。</li>
+<li><strong>特征不可训练</strong>：BoVW 的码本、SIFT 的描述子都是人定的，任务一变就得重新设计。</li>
+<li><strong>维度灾难</strong>：手工拼接的高维特征在有限样本下距离度量失效。</li>
+<li><strong>端到端</strong>：让特征提取器与分类器一起由损失驱动优化，是 CNN 最本质的改变。</li></ul>
+<div class="card tip"><p style="margin-bottom:0"><strong>工程建议</strong>：即使最终要用深度网络，也先花半小时跑一个 HoG/LBP + 线性 SVM 的传统基线。它给出了下限、暴露了数据问题，并让后续提升可归因——这正是第 26 章综合项目的要求。</p></div>
+<pre class="code" data-file="inline" data-lang="Shell"><code>pip install scikit-learn scikit-image
+python -c "import sklearn, skimage; print(sklearn.__version__, skimage.__version__)"</code></pre>
+</section>
+<section id="repos"><h2><span class="sec-num">§</span>开源工程与实现链接</h2>
+<p>本章原理对应的官方 / 开源实现。建议先跑通最小复现命令，再按「推荐用法」改动一个变量做对照实验。</p>
+<div class="card tip"><p style="margin-bottom:0">本章不需要 GPU：把第 15 章流水线的输出特征导出成 CSV，即可用 scikit-learn 完成全套基线实验。</p></div>
+<div class="repo-grid">
+<div class="repo-card">
+<h3><a href="https://github.com/scikit-learn/scikit-learn" target="_blank" rel="noopener">scikit-learn</a></h3>
+<span class="tag">框架 · 官方/开源实现</span>
+<p>传统机器学习基线（SVM、k-means、随机森林）的标准实现</p>
+<span class="why"><strong>怎么用</strong>：直接用 &lt;code&gt;SVC&lt;/code&gt;/&lt;code&gt;RandomForestClassifier&lt;/code&gt; 复现 16.2 的对照实验</span>
+<p style="margin:0"><code>https://github.com/scikit-learn/scikit-learn</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/opencv/opencv" target="_blank" rel="noopener">OpenCV 官方仓库</a></h3>
+<span class="tag">工具 · 官方/开源实现</span>
+<p>工业界最常用的计算机视觉库，源码与示例均可直接查阅</p>
+<span class="why"><strong>怎么用</strong>：官方 &lt;code&gt;SIFT_create&lt;/code&gt; 等特征实现，用来产出 BoVW 的输入描述子</span>
+<p style="margin:0"><code>https://github.com/opencv/opencv</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://scikit-image.org/" target="_blank" rel="noopener">scikit-image</a></h3>
+<span class="tag">工具 · 官方/开源实现</span>
+<p>Python 图像处理库，对照阅读每类传统算法的生产级实现</p>
+<span class="why"><strong>怎么用</strong>：LBP、HOG、GLCM 等手工特征的可靠实现，对照第 13 章</span>
+<p style="margin:0"><code>https://scikit-image.org/</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://cs231n.github.io/" target="_blank" rel="noopener">Stanford CS231n</a></h3>
+<span class="tag">课程 · 官方/开源实现</span>
+<p>经典视觉课程笔记，下卷最好的免费配套教材</p>
+<span class="why"><strong>怎么用</strong>：从线性分类、SVM 到反向传播的连贯讲义，补齐本章到下一章的过渡</span>
+<p style="margin:0"><code>https://cs231n.github.io/</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://d2l.ai/" target="_blank" rel="noopener">动手学深度学习 d2l.ai</a></h3>
+<span class="tag">课程 · 官方/开源实现</span>
+<p>含可运行代码的深度学习教材，中文版可用</p>
+<span class="why"><strong>怎么用</strong>：含可运行代码的机器学习与深度学习教材</span>
+<p style="margin:0"><code>https://d2l.ai/</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://paperswithcode.com/" target="_blank" rel="noopener">Papers with Code</a></h3>
+<span class="tag">文档 · 官方/开源实现</span>
+<p>按任务查 SOTA 方法与官方代码仓库</p>
+<span class="why"><strong>怎么用</strong>：查“图像分类 + 传统特征”的历史基线与后续 SOTA</span>
+<p style="margin:0"><code>https://paperswithcode.com/</code></p>
+</div>
+</div>
+<p class="code-hint">使用约定：以下仓库均为各自维护者的项目，本书与之无从属关系；请阅读其 README 与许可证后再用于课程或生产环境。更多资源见 <a href="#extra-links">扩展学习</a> 与 <a href="../../appendix/index.html">附录 A.3 开源工程总表</a>。</p>
+</section>
+<section id="pitfalls"><h2><span class="sec-num">§</span>常见误区</h2><div class="card warn"><ul><li>跳过传统基线直接上深度模型：无法判断提升来自模型还是来自数据清洗。</li>
+<li>在测试集上做 k-means 码本或特征选择：数据泄漏，指标虚高。</li>
+<li>用准确率评价 1:99 的不平衡数据：全预测多数类就有 99%。</li>
+<li>把高维手工特征直接喂 kNN：距离集中，分类接近随机。</li></ul></div></section>
+<section id="exercises"><h2><span class="sec-num">§</span>习题与思考</h2><ol><li>用第 13 章的 LBP 直方图 + 线性 SVM 设计一个三分类任务，写出完整交叉验证方案。</li>
+<li>解释 BoVW 与词袋模型在 NLP 中的对应关系，并指出图像侧多出来的“量化误差”来自哪里。</li></ol></section>
+<section id="extra-links"><h2><span class="sec-num">§</span>扩展学习</h2>
+<p>以下资料按本章知识点挑选，可直接精读或对照源码；知识点地图里每一条也挂了 1～2 个直达链接。</p>
+<ul>
+<li><strong>Scale-invariant feature transform</strong>（百科）：尺度空间、关键点与描述子<br><a href="https://en.wikipedia.org/wiki/Scale-invariant_feature_transform" target="_blank" rel="noopener">Scale-invariant feature transform</a></li>
+<li><strong>scikit-learn</strong>（框架）：传统机器学习基线（SVM、k-means、随机森林）的标准实现<br><a href="https://github.com/scikit-learn/scikit-learn" target="_blank" rel="noopener">scikit-learn</a></li>
+<li><strong>Stanford CS231n</strong>（课程）：经典视觉课程笔记，下卷最好的免费配套教材<br><a href="https://cs231n.github.io/" target="_blank" rel="noopener">Stanford CS231n</a></li>
+<li><strong>k-means clustering</strong>（百科）：迭代聚类与初始化敏感性<br><a href="https://en.wikipedia.org/wiki/K-means_clustering" target="_blank" rel="noopener">k-means clustering</a></li>
+</ul>
+<p class="code-hint">继续扩展：<a href="https://github.com/search?q=bag%20of%20visual%20words%20SVM%20image%20classification&amp;type=repositories" target="_blank" rel="noopener">在 GitHub 检索本章相关开源工程</a> · <a href="https://www.google.com/search?q=bag%20of%20visual%20words%20SVM%20image%20classification" target="_blank" rel="noopener">按本章主题检索资料</a> · <a href="../../index.html#resources">全书参考资源总表</a> · <a href="../../appendix/index.html">附录 A 速查与链接总表</a></p>
+</section>
+<section id="further"><h2><span class="sec-num">§</span>延伸阅读与内链</h2><ul><li><a href='../../part2/11-features/index.html'>第 11 章 局部特征与描述</a></li>
+<li><a href='../../part2/13-descriptors/index.html'>第 13 章 表示、描述与纹理</a></li>
+<li><a href='../17-cnn-fundamentals/index.html'>第 17 章 神经网络与 CNN 基础</a></li></ul></section>
+<footer class="pager" data-autofill></footer>
+<footer class="site-foot">
+<p class="credits"><strong>作者</strong>：汪亮（bertonwang）　<strong>联系邮箱</strong>：<a href="mailto:47608843@qq.com">47608843@qq.com</a></p>
+<p class="ai-note"><strong>AI 使用说明</strong>：本教材的知识框架、正文、Octave 示例代码与开源工程清单在 AI 辅助下整理生成，并经人工校订与静态自检。公式、数值与运行结果请以GNU Octave 实际输出及权威教材、官方文档为准；发现错漏欢迎通过上方邮箱勘误。</p>
+<p class="imprint">数字图像处理：从经典算法到智能方法 · 上卷每章一个 <code>code/*.m</code> Octave 脚本（由 <code>tools/extract_code.py</code> 从 HTML 同步） · 下卷给出官方开源工程链接 · GNU Octave 为自由软件，本书与之无从属关系。</p>
+</footer>
+</main>
+</body>
+</html>

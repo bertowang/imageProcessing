@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第 04 章 · 空间域滤波 | 数字图像处理：从经典算法到智能方法</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script src="../../assets/toc.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</head>
+<body data-root="../../" data-chapter="04">
+<aside id="sidebar"></aside>
+<main class="book-page">
+<nav class="breadcrumb" data-autofill>总目录</nav>
+<header class="chapter-head">
+<span class="kicker">第一篇 · 基础变换与增强</span>
+<h1><span class="ch-num">第 04 章</span>空间域滤波</h1>
+<p class="lede">从构造一个高斯核开始，把线性平滑、非线性去噪与锐化统一到“邻域加权”这一个动作上。</p>
+<div class="meta">
+<span class="badge done">已完稿</span>
+<span>建议 4 学时</span>
+<span>2 个 Octave 实例</span>
+<span class="badge upper">上卷 · 传统算法</span>
+<span>数字图像处理：从经典算法到智能方法</span>
+</div></header>
+<div class="card objectives"><span class="card-label">学习目标</span><ul>
+<li>能手工构造高斯核并说明可分离性带来的复杂度收益</li>
+<li>能实现带边界处理的线性滤波并预测输出值域</li>
+<li>理解中值滤波为何能去掉椒盐噪声而保住边缘</li>
+<li>能写出拉普拉斯与非锐化掩蔽的公式并指出振铃来源</li>
+</ul></div>
+<section id="map"><h2><span class="sec-num">§</span>知识点地图</h2>
+<p class="code-hint">每个知识点都配了 1～2 个扩展学习链接；本章完整资源清单见 <a href="#extra-links">扩展学习</a>。</p>
+<table><thead><tr><th style="width:44px">#</th><th style="width:26%">知识点</th><th>扩展学习</th><th style="width:100px">状态</th></tr></thead><tbody>
+<tr><td>1</td><td>线性滤波与卷积核</td><td><a href="https://en.wikipedia.org/wiki/Convolution" target="_blank" rel="noopener">Convolution</a> · <a href="https://en.wikipedia.org/wiki/Kernel_(image_processing)" target="_blank" rel="noopener">Kernel (image processing)</a></td><td>正文已覆盖</td></tr>
+<tr><td>2</td><td>高斯核与可分离性</td><td><a href="https://en.wikipedia.org/wiki/Gaussian_blur" target="_blank" rel="noopener">Gaussian blur</a> · <a href="https://en.wikipedia.org/wiki/Kernel_(image_processing)" target="_blank" rel="noopener">Kernel (image processing)</a></td><td>正文已覆盖</td></tr>
+<tr><td>3</td><td>边界处理</td><td><a href="https://en.wikipedia.org/wiki/Kernel_(image_processing)" target="_blank" rel="noopener">Kernel (image processing)</a> · <a href="https://en.wikipedia.org/wiki/Gaussian_blur" target="_blank" rel="noopener">Gaussian blur</a></td><td>正文已覆盖</td></tr>
+<tr><td>4</td><td>中值与排序统计</td><td><a href="https://en.wikipedia.org/wiki/Median_filter" target="_blank" rel="noopener">Median filter</a> · <a href="https://scikit-image.org/docs/stable/user_guide/" target="_blank" rel="noopener">scikit-image User Guide</a></td><td>正文已覆盖</td></tr>
+<tr><td>5</td><td>拉普拉斯锐化</td><td><a href="https://en.wikipedia.org/wiki/Kernel_(image_processing)" target="_blank" rel="noopener">Kernel (image processing)</a> · <a href="https://en.wikipedia.org/wiki/Sobel_operator" target="_blank" rel="noopener">Sobel operator</a></td><td>正文已覆盖</td></tr>
+<tr><td>6</td><td>双边滤波</td><td><a href="https://en.wikipedia.org/wiki/Bilateral_filter" target="_blank" rel="noopener">Bilateral filter</a> · <a href="https://en.wikipedia.org/wiki/Non-local_means" target="_blank" rel="noopener">Non-local means</a></td><td>正文已覆盖</td></tr>
+</tbody></table></section>
+<section id="s4-1"><h2><span class="sec-num">§4.1</span>线性滤波：核决定一切</h2>
+<p>线性滤波就是用一个小矩阵 <code>w</code> 在图上滑动求和。核的<strong>元素和</strong>决定整体增益：和为 1 保持亮度，和为 0 提取差分（梯度/拉普拉斯），和为负会得到反相图。</p>
+<span class="eq">g(r,c) = Σᵢ Σⱼ w(i,j) · f(r+i, c+j)</span>
+<p>盒式核 <code>ones(k)/k²</code> 最简单但有明显振铃（频域是 sinc，旁瓣高）；高斯核在空域与频域都是高斯，<strong>没有旁瓣</strong>，是最常用的平滑核：</p>
+<span class="eq">w(x,y) = (1/2πσ²)·exp(−(x²+y²)/2σ²)，　w(x,y) = wₓ(x)·w_y(y)</span>
+<p>可分离性把一个 <code>k×k</code> 卷积拆成两次一维卷积，复杂度从 <code>O(k²)</code> 降到 <code>O(2k)</code>；核越大收益越明显。经验取值：核半径约 <code>3σ</code>。</p>
+</section>
+<section id="s4-2"><h2><span class="sec-num">§4.2</span>非线性滤波：中值与排序统计</h2>
+<p>椒盐噪声是<strong>脉冲</strong>：个别像素被置为 0 或 1。线性平均会把脉冲“摊”到邻域里，越平滑越糊；中值滤波取邻域排序后的中间值，只要脉冲占比小于一半，极值就不会进入输出，因此能<strong>去脉冲同时保边</strong>。推广形式是排序统计滤波（取第 p 个分位数）：最大值 = 膨胀、最小值 = 腐蚀，正是第 09 章形态学的灰度版本。</p>
+<div class="card note"><p style="margin-bottom:0"><strong>代价</strong>：中值滤波不是线性系统，不能用卷积或传递函数分析，也不满足叠加原理；大窗口会抹掉细线与小目标。窗口尺寸应小于希望保留的最小结构。</p></div>
+</section>
+<section id="s4-3"><h2><span class="sec-num">§4.3</span>锐化：拉普拉斯与非锐化掩蔽</h2>
+<p>模糊等价于衰减高频，锐化等价于把高频加回去。二阶导数用拉普拉斯核近似：</p>
+<table><thead><tr><th>核</th><th>形式</th><th>用途</th></tr></thead><tbody>
+<tr><td>4 邻域拉普拉斯</td><td><code>[0 1 0; 1 -4 1; 0 1 0]</code></td><td>各向同性二阶差分</td></tr>
+<tr><td>8 邻域拉普拉斯</td><td><code>[1 1 1; 1 -8 1; 1 1 1]</code></td><td>对角线响应更强</td></tr>
+</tbody></table>
+<span class="eq">g = f + λ·∇²f　（非锐化掩蔽 USM：g = f + λ·(f − blur(f))）</span>
+<p><code>λ</code> 是唯一要调的参数：太小看不出效果，太大会在边缘两侧出现<strong>过冲与白边（halo）</strong>，同时放大噪声。工业做法常先轻微去噪再 USM，或用掩模限制只在边缘区域增强。</p>
+</section>
+<section id="s4-4"><h2><span class="sec-num">§4.4</span>保边平滑与双边滤波</h2>
+<p>高斯平滑只看<strong>空间距离</strong>，因此会跨过边缘把两侧像素混在一起。双边滤波再加一个<strong>灰度相似度</strong>权重：</p>
+<span class="eq">g(p) = (1/W) Σ_q exp(−‖p−q‖²/2σ_s²) · exp(−(f(p)−f(q))²/2σ_r²) · f(q)</span>
+<p>结果是“平坦区域内强平滑、边缘两侧几乎不互相影响”。代价是权重依赖图像内容，<strong>不再是卷积</strong>，无法用 FFT 加速，计算量也大。它是“传统算法里最像学习方法”的一类：先验由人写死，但权重由数据自适应决定。第 23 章会看到深度网络如何学出类似的自适应滤波。</p>
+</section>
+<section id="lab"><h2><span class="sec-num">§</span>Octave 实例</h2>
+<h3>高斯核构造、可分离验证与平滑效果</h3>
+<pre class="code" data-file="code/04-linear-filter.m" data-lang="GNU Octave"><code>%% 04-linear-filter.m | 高斯核 / 可分离性 / 加噪图的平滑
+%% GNU Octave，零第三方依赖；合成图像，无需任何外部文件
+clear; close all; clc;
+SHOW = ~strcmp(getenv("IP_HEADLESS"), "1");
+% ---- 参数区 ----
+sigma = 2.0; radius = 6; noise_sigma = 0.08; N = 128;
+randn("seed", 21);
+% ---- 造图：阶跃边缘 + 高斯噪声 ----
+[X, Y] = meshgrid(1:N, 1:N);
+f = 0.3 + 0.4*double(X &gt; N/2);
+noisy = min(max(f + noise_sigma*randn(N,N), 0), 1);
+% ---- 算法 1：由公式构造可分离高斯核 ----
+x = -radius:radius;
+w1 = exp(-x.^2 / (2*sigma^2)); w1 = w1 / sum(w1);
+w2 = w1' * w1;                                  % 外积 = 二维高斯核
+% ---- 算法 2：两次一维卷积 == 一次二维卷积 ----
+sep  = conv2(conv2(noisy, w1, "same"), w1', "same");
+full = conv2(noisy, w2, "same");
+% ---- 数值验证 ----
+printf("一维核长度 = %d, 和 = %.6f\n", numel(w1), sum(w1));
+printf("二维核尺寸 = %dx%d, 和 = %.6f\n", rows(w2), columns(w2), sum(w2(:)));
+printf("可分离与二维卷积最大差 = %.3e\n", max(abs(sep(:)-full(:))));
+printf("噪声标准差: 平滑前 %.4f -&gt; 平滑后 %.4f\n", std(noisy(:)), std(full(:)));
+printf("边缘两侧均值: %.4f / %.4f (原始 0.3000 / 0.7000)\n", ...
+       mean(mean(full(:, 20:40))), mean(mean(full(:, 90:110))));
+printf("加噪 MSE=%.6f 平滑后 MSE=%.6f\n", ...
+       mean((noisy(:)-f(:)).^2), mean((full(:)-f(:)).^2));
+% ---- 可视化 ----
+if SHOW
+  figure("name", "04 线性滤波");
+  subplot(1, 3, 1); imagesc(noisy, [0 1]); colormap gray; axis image off; title("加噪图");
+  subplot(1, 3, 2); imagesc(w2, [0 max(w2(:))]); axis image off; title("高斯核");
+  subplot(1, 3, 3); imagesc(full, [0 1]); axis image off; title("高斯平滑后");
+end</code></pre>
+<p class="code-hint"><strong>操作：</strong>运行后把 &lt;code&gt;sigma&lt;/code&gt; 改为 0.8 / 4，比较“平滑后标准差”和“平滑后 MSE”的变化。　<strong>预期与判读：</strong>核和为 1；可分离结果与二维卷积最大差在机器精度内；平滑后噪声标准差显著下降；但边缘两侧均值会向中间靠拢，说明边缘同时被模糊——这就是双边滤波的动机。　文件位置：<code>part1/04-spatial-filter/code/04-linear-filter.m</code></p>
+<h3>中值去椒盐、拉普拉斯与非锐化掩蔽</h3>
+<pre class="code" data-file="code/04-median-sharpen.m" data-lang="GNU Octave"><code>%% 04-median-sharpen.m | 中值滤波 / 拉普拉斯 / USM 对照
+%% GNU Octave，零第三方依赖；合成图像，无需任何外部文件
+clear; close all; clc;
+SHOW = ~strcmp(getenv("IP_HEADLESS"), "1");
+% ---- 参数区 ----
+salt_rate = 0.06; win = 3; lambda = 0.8; N = 128;
+rand("seed", 33);
+% ---- 造图：阶跃 + 细线 + 椒盐噪声 ----
+[X, Y] = meshgrid(1:N, 1:N);
+f = 0.25 + 0.45*double(X &gt; N/2);
+f(abs(Y - N/2) &lt; 2) = 0.9;                     % 一根细线，用来观察是否被抹掉
+sp = rand(N, N);
+noisy = f;
+noisy(sp &lt; salt_rate/2) = 0; noisy(sp &gt; 1-salt_rate/2) = 1;
+% ---- 算法 1：手写中值滤波（补 replicate 边界）----
+p = (win-1)/2;
+a = [repmat(noisy(1,:), p, 1); noisy; repmat(noisy(end,:), p, 1)];
+a = [repmat(a(:,1), 1, p), a, repmat(a(:,end), 1, p)];
+med = zeros(N, N);
+for r = 1:N
+  for c = 1:N
+    blk = a(r:r+win-1, c:c+win-1);
+    med(r,c) = median(blk(:));
+  end
+end
+% ---- 算法 2：线性均值滤波（作对照）----
+mean3 = conv2(a, ones(win,win)/(win^2), "valid");
+% ---- 算法 3：拉普拉斯 + USM 锐化 ----
+lap = [0 1 0; 1 -4 1; 0 1 0];
+sharp = med + lambda * conv2(med, lap, "same");
+blur = conv2(med, ones(3,3)/9, "same");
+usm = med + lambda * (med - blur);
+% ---- 数值验证 ----
+printf("椒盐污染像素比例 = %.4f\n", mean(sp &lt; salt_rate/2 | sp &gt; 1-salt_rate/2));
+printf("对干净图的 MSE: 加噪 %.6f -&gt; 中值 %.6f -&gt; 均值 %.6f\n", ...
+       mean((noisy(:)-f(:)).^2), mean((med(:)-f(:)).^2), mean((mean3(:)-f(:)).^2));
+printf("中值结果中的 0/1 极值像素数 = %d（应远少于加噪图 %d）\n", ...
+       sum(med(:)==0 | med(:)==1), sum(noisy(:)==0 | noisy(:)==1));
+printf("锐化后 min=%.4f max=%.4f（越界说明有 overshoot）\n", min(sharp(:)), max(sharp(:)));
+a = sharp(:) - mean(sharp(:)); b = usm(:) - mean(usm(:));
+cc = sum(a .* b) / sqrt(sum(a.^2) * sum(b.^2));
+printf("USM 与拉普拉斯锐化的相关系数 = %.4f\n", cc);
+% ---- 可视化 ----
+if SHOW
+  figure("name", "04 中值与锐化");
+  subplot(2, 2, 1); imagesc(noisy, [0 1]); colormap gray; axis image off; title("椒盐噪声");
+  subplot(2, 2, 2); imagesc(med, [0 1]); axis image off; title("3x3 中值");
+  subplot(2, 2, 3); imagesc(mean3, [0 1]); axis image off; title("3x3 均值（对照）");
+  subplot(2, 2, 4); imagesc(usm, [0 1]); axis image off; title("USM 锐化");
+end</code></pre>
+<p class="code-hint"><strong>操作：</strong>运行并把 &lt;code&gt;salt_rate&lt;/code&gt; 提高到 0.3，观察中值滤波何时开始失效；把 &lt;code&gt;lambda&lt;/code&gt; 改成 2 观察过冲。　<strong>预期与判读：</strong>中值的 MSE 明显小于均值，说明脉冲噪声下非线性滤波更合适；中值结果中 0/1 极值几乎消失；锐化输出会略超出 [0,1]，正是边缘过冲；噪声占比接近或超过 50% 时中值也会失效。　文件位置：<code>part1/04-spatial-filter/code/04-median-sharpen.m</code></p>
+<div class="card note"><p style="margin-bottom:0">代码块右上角可一键复制；本仓库 <code>code/*.m</code> 由 <code>tools/extract_code.py</code> 从这些代码块自动抽取，页面与脚本永远一致。脚本只用 Octave 核心函数，设 <code>IP_HEADLESS=1</code> 可跳过绘图。</p></div>
+</section>
+<section id="pitfalls"><h2><span class="sec-num">§</span>常见误区</h2><div class="card warn"><ul><li>高斯核忘记归一化：整幅图会变亮或变暗，而不是被平滑。</li>
+<li>核尺寸取偶数：没有唯一中心，输出会发生半像素偏移。</li>
+<li>用均值滤波处理椒盐噪声：脉冲被摊开成一片灰点，反而更难看。</li>
+<li>锐化前不去噪：&lt;code&gt;λ&lt;/code&gt; 会同时放大噪声，边缘出现大量白边。</li></ul></div></section>
+<section id="exercises"><h2><span class="sec-num">§</span>习题与思考</h2><ol><li>推导二维高斯核可分离性的代数过程，并用 04-linear-filter.m 的打印值核对。</li>
+<li>把中值窗口改成 5×5，观察细线是否被抹掉；总结“窗口必须小于待保留结构”的经验规则。</li></ol></section>
+<section id="extra-links"><h2><span class="sec-num">§</span>扩展学习</h2>
+<p>以下资料按本章知识点挑选，可直接精读或对照源码；知识点地图里每一条也挂了 1～2 个直达链接。</p>
+<ul>
+<li><strong>Kernel (image processing)</strong>（百科）：卷积核 / 滤波掩模的条目<br><a href="https://en.wikipedia.org/wiki/Kernel_(image_processing)" target="_blank" rel="noopener">Kernel (image processing)</a></li>
+<li><strong>Gaussian blur</strong>（百科）：高斯核的可分离性与尺度参数<br><a href="https://en.wikipedia.org/wiki/Gaussian_blur" target="_blank" rel="noopener">Gaussian blur</a></li>
+<li><strong>Median filter</strong>（百科）：排序统计滤波与椒盐噪声<br><a href="https://en.wikipedia.org/wiki/Median_filter" target="_blank" rel="noopener">Median filter</a></li>
+<li><strong>Bilateral filter</strong>（百科）：保边平滑的双权重思想<br><a href="https://en.wikipedia.org/wiki/Bilateral_filter" target="_blank" rel="noopener">Bilateral filter</a></li>
+<li><strong>OpenCV Tutorials</strong>（文档）：官方教程，含滤波、形态学、特征与几何变换的示例<br><a href="https://docs.opencv.org/master/d6/d00/tutorial_py_root.html" target="_blank" rel="noopener">OpenCV Tutorials</a></li>
+</ul>
+<p class="code-hint">继续扩展：<a href="https://github.com/search?q=image%20filtering%20gaussian%20median%20Octave&amp;type=repositories" target="_blank" rel="noopener">在 GitHub 检索本章相关开源工程</a> · <a href="https://www.google.com/search?q=image%20filtering%20gaussian%20median%20Octave" target="_blank" rel="noopener">按本章主题检索资料</a> · <a href="../../index.html#resources">全书参考资源总表</a> · <a href="../../appendix/index.html">附录 A 速查与链接总表</a></p>
+</section>
+<section id="further"><h2><span class="sec-num">§</span>延伸阅读与内链</h2><ul><li><a href='../05-frequency-domain/index.html'>第 5 章 频域处理</a></li>
+<li><a href='../../part2/10-edge-detection/index.html'>第 10 章 边缘检测</a></li>
+<li><a href='../../part2/09-morphology/index.html'>第 9 章 数学形态学</a></li></ul></section>
+<footer class="pager" data-autofill></footer>
+<footer class="site-foot">
+<p class="credits"><strong>作者</strong>：汪亮（bertonwang）　<strong>联系邮箱</strong>：<a href="mailto:47608843@qq.com">47608843@qq.com</a></p>
+<p class="ai-note"><strong>AI 使用说明</strong>：本教材的知识框架、正文、Octave 示例代码与开源工程清单在 AI 辅助下整理生成，并经人工校订与静态自检。公式、数值与运行结果请以GNU Octave 实际输出及权威教材、官方文档为准；发现错漏欢迎通过上方邮箱勘误。</p>
+<p class="imprint">数字图像处理：从经典算法到智能方法 · 上卷每章一个 <code>code/*.m</code> Octave 脚本（由 <code>tools/extract_code.py</code> 从 HTML 同步） · 下卷给出官方开源工程链接 · GNU Octave 为自由软件，本书与之无从属关系。</p>
+</footer>
+</main>
+</body>
+</html>

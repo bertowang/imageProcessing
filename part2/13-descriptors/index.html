@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第 13 章 · 表示、描述与纹理 | 数字图像处理：从经典算法到智能方法</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script src="../../assets/toc.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</head>
+<body data-root="../../" data-chapter="13">
+<aside id="sidebar"></aside>
+<main class="book-page">
+<nav class="breadcrumb" data-autofill>总目录</nav>
+<header class="chapter-head">
+<span class="kicker">第二篇 · 结构分析与理解</span>
+<h1><span class="ch-num">第 13 章</span>表示、描述与纹理</h1>
+<p class="lede">分割给出“哪些像素”，描述给出“是什么形状、什么纹理”：把图像压成可比较、可分类的特征向量。</p>
+<div class="meta">
+<span class="badge done">已完稿</span>
+<span>建议 3 学时</span>
+<span>1 个 Octave 实例</span>
+<span class="badge upper">上卷 · 传统算法</span>
+<span>数字图像处理：从经典算法到智能方法</span>
+</div></header>
+<div class="card objectives"><span class="card-label">学习目标</span><ul>
+<li>能计算区域面积、质心与二阶中心矩并验证平移不变性</li>
+<li>说清 Hu 不变矩对哪些变换不变、对哪些不变不了</li>
+<li>能实现 3×3 LBP 编码并解释其光照不变性</li>
+<li>能列出 GLCM 常用统计量及其含义</li>
+</ul></div>
+<section id="map"><h2><span class="sec-num">§</span>知识点地图</h2>
+<p class="code-hint">每个知识点都配了 1～2 个扩展学习链接；本章完整资源清单见 <a href="#extra-links">扩展学习</a>。</p>
+<table><thead><tr><th style="width:44px">#</th><th style="width:26%">知识点</th><th>扩展学习</th><th style="width:100px">状态</th></tr></thead><tbody>
+<tr><td>1</td><td>边界表示与链码</td><td><a href="https://en.wikipedia.org/wiki/Image_moment" target="_blank" rel="noopener">Image moment</a> · <a href="https://en.wikipedia.org/wiki/Digital_image_processing" target="_blank" rel="noopener">Digital image processing</a></td><td>正文已覆盖</td></tr>
+<tr><td>2</td><td>面积、质心与矩</td><td><a href="https://en.wikipedia.org/wiki/Image_moment" target="_blank" rel="noopener">Image moment</a> · <a href="https://en.wikipedia.org/wiki/Local_binary_patterns" target="_blank" rel="noopener">Local binary patterns</a></td><td>正文已覆盖</td></tr>
+<tr><td>3</td><td>Hu 不变矩</td><td><a href="https://en.wikipedia.org/wiki/Image_moment" target="_blank" rel="noopener">Image moment</a> · <a href="https://en.wikipedia.org/wiki/Local_binary_patterns" target="_blank" rel="noopener">Local binary patterns</a></td><td>正文已覆盖</td></tr>
+<tr><td>4</td><td>LBP 局部二值模式</td><td><a href="https://en.wikipedia.org/wiki/Local_binary_patterns" target="_blank" rel="noopener">Local binary patterns</a> · <a href="https://en.wikipedia.org/wiki/Co-occurrence_matrix" target="_blank" rel="noopener">Co-occurrence matrix</a></td><td>正文已覆盖</td></tr>
+<tr><td>5</td><td>GLCM 与 Haralick 特征</td><td><a href="https://en.wikipedia.org/wiki/Co-occurrence_matrix" target="_blank" rel="noopener">Co-occurrence matrix</a> · <a href="https://en.wikipedia.org/wiki/Local_binary_patterns" target="_blank" rel="noopener">Local binary patterns</a></td><td>正文已覆盖</td></tr>
+<tr><td>6</td><td>特征向量与分类接口</td><td><a href="https://en.wikipedia.org/wiki/Image_moment" target="_blank" rel="noopener">Image moment</a> · <a href="https://en.wikipedia.org/wiki/Local_binary_patterns" target="_blank" rel="noopener">Local binary patterns</a></td><td>正文已覆盖</td></tr>
+</tbody></table></section>
+<section id="s13-1"><h2><span class="sec-num">§13.1</span>边界与区域描述</h2>
+<p>分割后的目标需要变成<strong>紧凑、可比较</strong>的描述。边界表示有链码（8 方向序列，需做起点归一化与旋转归一化）、多边形近似（Douglas-Peucker）、傅里叶描述子（把边界看成复数序列做 FFT，取低频系数即得形状摘要）。区域表示则直接用全部前景像素：</p>
+<span class="eq">面积 A = Σ f，　质心 (c̄,r̄) = (Σ c·f / A, Σ r·f / A)，　中心矩 μ_pq = Σ (c−c̄)^p (r−r̄)^q f</span>
+<p>由二阶、三阶归一化中心矩可组合出 <strong>7 个 Hu 矩</strong>，对平移、缩放、旋转（以及镜像中的部分）不变，是早期 OCR 与形状检索的经典特征。它们对<strong>遮挡与非刚性形变</strong>不稳定，也不含颜色与纹理信息。</p>
+</section>
+<section id="s13-2"><h2><span class="sec-num">§13.2</span>纹理：LBP 与 GLCM</h2>
+<p><strong>LBP</strong>：对 3×3 邻域，把 8 个邻点灰度与中心比较，≥ 中心记 1，按固定顺序组成 8 bit 编码，再统计整幅图的编码直方图。因为比较的是<strong>相对大小</strong>，对单调光照变化天然鲁棒；“均匀模式”（编码中 0/1 跳变不超过 2 次）可把 256 维压到 59 维，是实用的工程技巧。</p>
+<p><strong>GLCM</strong>：统计在给定方向 <code>(dx,dy)</code> 与距离 d 上，灰度对 <code>(i,j)</code> 的共现频次，归一化后导出对比度、相关性、能量（ASM）、熵、同质性等 Haralick 特征。它描述的是<strong>二阶统计</strong>，对纹理周期与方向敏感，但计算量随灰度级数平方增长，通常先量化到 16/32 级。</p>
+<div class="card tip"><p style="margin-bottom:0">这两类特征在第 16 章会直接进入 SVM / 视觉词袋；把它们的“人工设计”与 CNN 第一层学出的滤波器对照着看，能最直观地理解“表示学习”到底学走了什么。</p></div>
+</section>
+<section id="lab"><h2><span class="sec-num">§</span>Octave 实例</h2>
+<h3>区域矩、平移不变性与 LBP 直方图</h3>
+<pre class="code" data-file="code/13-moments-lbp.m" data-lang="GNU Octave"><code>%% 13-moments-lbp.m | 面积/质心/中心矩 + 3x3 LBP 编码直方图
+%% GNU Octave，零第三方依赖；合成图像，无需任何外部文件
+clear; close all; clc;
+SHOW = ~strcmp(getenv("IP_HEADLESS"), "1");
+% ---- 参数区 ----
+N = 96; bins = 256;
+% ---- 造图：椭圆掩模，并做一个平移副本 ----
+[X, Y] = meshgrid(1:N, 1:N);
+bw = double(((X-40)/20).^2 + ((Y-45)/30).^2 &lt;= 1);
+shifted = zeros(N, N);
+shifted(9:N, 13:N) = bw(1:N-8, 1:N-12);
+g = 0.30 + 0.40*bw + 0.10*sin(X/3).*sin(Y/4);
+% ---- 算法 1：面积 / 质心 / 二阶中心矩 ----
+% 面积 / 质心 / 二阶中心矩（匿名函数）
+mm = @(a) [sum(a(:)), ...
+           sum(X(:).*a(:))/sum(a(:)), sum(Y(:).*a(:))/sum(a(:)), ...
+           sum(((X(:)-sum(X(:).*a(:))/sum(a(:))).^2).*a(:))/sum(a(:)), ...
+           sum(((Y(:)-sum(Y(:).*a(:))/sum(a(:))).^2).*a(:))/sum(a(:))];
+m1 = mm(bw); m2 = mm(shifted);
+printf("原图: 面积=%.0f 质心=(%.2f, %.2f) mu20=%.2f mu02=%.2f\n", m1(1),m1(2),m1(3),m1(4),m1(5));
+printf("平移: 面积=%.0f 质心=(%.2f, %.2f) mu20=%.2f mu02=%.2f\n", m2(1),m2(2),m2(3),m2(4),m2(5));
+printf("质心差 = (%.2f, %.2f)（应等于平移量 12, 8）\n", m2(2)-m1(2), m2(3)-m1(3));
+printf("中心矩差 = (%.6f, %.6f)（中心矩对平移不变）\n", m2(4)-m1(4), m2(5)-m1(5));
+% ---- 算法 2：3x3 LBP（8 邻域，边界补零）----
+p = 1; a = zeros(N+2, N+2); a(2:N+1, 2:N+1) = g;
+off = [-1 -1; -1 0; -1 1; 0 1; 1 1; 1 0; 1 -1; 0 -1];
+lbp = zeros(N, N);
+for r = 1:N
+  for c = 1:N
+    code = 0;
+    for t = 1:8
+      code = code + double(a(r+1+off(t,1), c+1+off(t,2)) &gt;= a(r+1, c+1)) * 2^(t-1);
+    end
+    lbp(r,c) = code;
+  end
+end
+hist_lbp = zeros(bins,1);
+for i = 1:numel(lbp), hist_lbp(lbp(i)+1) = hist_lbp(lbp(i)+1) + 1; end
+printf("LBP 编码种类 = %d / %d, 最常见编码 = %d（占比 %.3f）\n", ...
+       sum(hist_lbp&gt;0), bins, find(hist_lbp==max(hist_lbp),1)-1, max(hist_lbp)/numel(lbp));
+printf("编码 0 与 255 的像素数 = %d / %d（平坦区占多数）\n", hist_lbp(1), hist_lbp(256));
+% ---- 可视化 ----
+if SHOW
+  figure("name", "13 描述与纹理");
+  subplot(1, 3, 1); imagesc(bw, [0 1]); colormap gray; axis image off; title("椭圆掩模");
+  subplot(1, 3, 2); imagesc(lbp); axis image off; title("LBP 编码图");
+  subplot(1, 3, 3); bar(hist_lbp); xlim([0 bins]); title("LBP 直方图（特征向量）");
+end</code></pre>
+<p class="code-hint"><strong>操作：</strong>运行后对照两行矩：面积与中心矩应相同，只有质心随平移改变；把平移量改成 &lt;code&gt;[0, 0]&lt;/code&gt; 验证两行完全一致。　<strong>预期与判读：</strong>中心矩对平移不变，质心随平移等量移动；平坦区产生 LBP 编码 0 或 255 并占多数；LBP 直方图可直接作为后续分类器的特征向量。　文件位置：<code>part2/13-descriptors/code/13-moments-lbp.m</code></p>
+<div class="card note"><p style="margin-bottom:0">代码块右上角可一键复制；本仓库 <code>code/*.m</code> 由 <code>tools/extract_code.py</code> 从这些代码块自动抽取，页面与脚本永远一致。脚本只用 Octave 核心函数，设 <code>IP_HEADLESS=1</code> 可跳过绘图。</p></div>
+</section>
+<section id="pitfalls"><h2><span class="sec-num">§</span>常见误区</h2><div class="card warn"><ul><li>把质心当成不变特征：它随平移改变，只有&lt;strong&gt;中心&lt;/strong&gt;矩才平移不变。</li>
+<li>LBP 邻域顺序不固定：不同实现若环绕方向不同，直方图会不一致。</li>
+<li>GLCM 直接用 256 级灰度：矩阵 65536 项且极稀疏，先量化再统计。</li>
+<li>用 Hu 矩处理遮挡目标：少量缺失像素就会显著改变高阶矩。</li></ul></div></section>
+<section id="exercises"><h2><span class="sec-num">§</span>习题与思考</h2><ol><li>在 13-moments-lbp.m 里对掩模做缩放（用最近邻重采样），观察 &lt;code&gt;mu20&lt;/code&gt; 的变化并说明归一化中心矩为什么要除以面积幂次。</li>
+<li>统计 LBP 的“均匀模式”数量，说明为什么可以从 256 维降到 59 维。</li></ol></section>
+<section id="extra-links"><h2><span class="sec-num">§</span>扩展学习</h2>
+<p>以下资料按本章知识点挑选，可直接精读或对照源码；知识点地图里每一条也挂了 1～2 个直达链接。</p>
+<ul>
+<li><strong>Image moment</strong>（百科）：矩、质心与 Hu 不变矩<br><a href="https://en.wikipedia.org/wiki/Image_moment" target="_blank" rel="noopener">Image moment</a></li>
+<li><strong>Local binary patterns</strong>（百科）：局部纹理描述子<br><a href="https://en.wikipedia.org/wiki/Local_binary_patterns" target="_blank" rel="noopener">Local binary patterns</a></li>
+<li><strong>Co-occurrence matrix</strong>（百科）：灰度共生矩阵与 Haralick 特征<br><a href="https://en.wikipedia.org/wiki/Co-occurrence_matrix" target="_blank" rel="noopener">Co-occurrence matrix</a></li>
+<li><strong>scikit-learn</strong>（框架）：传统机器学习基线（SVM、k-means、随机森林）的标准实现<br><a href="https://github.com/scikit-learn/scikit-learn" target="_blank" rel="noopener">scikit-learn</a></li>
+</ul>
+<p class="code-hint">继续扩展：<a href="https://github.com/search?q=texture%20feature%20LBP%20GLCM%20Hu%20moments&amp;type=repositories" target="_blank" rel="noopener">在 GitHub 检索本章相关开源工程</a> · <a href="https://www.google.com/search?q=texture%20feature%20LBP%20GLCM%20Hu%20moments" target="_blank" rel="noopener">按本章主题检索资料</a> · <a href="../../index.html#resources">全书参考资源总表</a> · <a href="../../appendix/index.html">附录 A 速查与链接总表</a></p>
+</section>
+<section id="further"><h2><span class="sec-num">§</span>延伸阅读与内链</h2><ul><li><a href='../11-features/index.html'>第 11 章 局部特征与描述</a></li>
+<li><a href='../../part3/16-learning-baselines/index.html'>第 16 章 从手工特征到学习</a></li>
+<li><a href='../../part3/17-cnn-fundamentals/index.html'>第 17 章 CNN 基础</a></li></ul></section>
+<footer class="pager" data-autofill></footer>
+<footer class="site-foot">
+<p class="credits"><strong>作者</strong>：汪亮（bertonwang）　<strong>联系邮箱</strong>：<a href="mailto:47608843@qq.com">47608843@qq.com</a></p>
+<p class="ai-note"><strong>AI 使用说明</strong>：本教材的知识框架、正文、Octave 示例代码与开源工程清单在 AI 辅助下整理生成，并经人工校订与静态自检。公式、数值与运行结果请以GNU Octave 实际输出及权威教材、官方文档为准；发现错漏欢迎通过上方邮箱勘误。</p>
+<p class="imprint">数字图像处理：从经典算法到智能方法 · 上卷每章一个 <code>code/*.m</code> Octave 脚本（由 <code>tools/extract_code.py</code> 从 HTML 同步） · 下卷给出官方开源工程链接 · GNU Octave 为自由软件，本书与之无从属关系。</p>
+</footer>
+</main>
+</body>
+</html>

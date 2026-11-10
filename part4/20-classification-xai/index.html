@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第 20 章 · 图像分类与可解释性 | 数字图像处理：从经典算法到智能方法</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script src="../../assets/toc.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</head>
+<body data-root="../../" data-chapter="20">
+<aside id="sidebar"></aside>
+<main class="book-page">
+<nav class="breadcrumb" data-autofill>总目录</nav>
+<header class="chapter-head">
+<span class="kicker">第四篇 · 视觉任务与工程落地</span>
+<h1><span class="ch-num">第 20 章</span>图像分类与可解释性</h1>
+<p class="lede">训练配方决定上限，误差分析决定改进方向，可解释性决定你能不能信任这个结果。</p>
+<div class="meta">
+<span class="badge done">已完稿</span>
+<span>建议 3 学时</span>
+<span>6 个开源工程</span>
+<span class="badge lower">下卷 · AI 算法</span>
+<span>数字图像处理：从经典算法到智能方法</span>
+</div></header>
+<div class="card objectives"><span class="card-label">学习目标</span><ul>
+<li>能列出一个现代分类训练配方的关键组件</li>
+<li>会用混淆矩阵定位系统性错误</li>
+<li>能说明 Grad-CAM 与显著性图的原理与局限</li>
+<li>能识别分布外与标签噪声带来的风险</li>
+</ul></div>
+<section id="map"><h2><span class="sec-num">§</span>知识点地图</h2>
+<p class="code-hint">每个知识点都配了 1～2 个扩展学习链接；本章完整资源清单见 <a href="#extra-links">扩展学习</a>。</p>
+<table><thead><tr><th style="width:44px">#</th><th style="width:26%">知识点</th><th>扩展学习</th><th style="width:100px">状态</th></tr></thead><tbody>
+<tr><td>1</td><td>训练配方与学习率调度</td><td><a href="https://github.com/open-mmlab/mmpretrain" target="_blank" rel="noopener">MMPreTrain</a> · <a href="https://github.com/jacobgil/pytorch-grad-cam" target="_blank" rel="noopener">pytorch-grad-cam</a></td><td>正文已覆盖</td></tr>
+<tr><td>2</td><td>混合精度与 EMA</td><td><a href="https://github.com/open-mmlab/mmpretrain" target="_blank" rel="noopener">MMPreTrain</a> · <a href="https://github.com/jacobgil/pytorch-grad-cam" target="_blank" rel="noopener">pytorch-grad-cam</a></td><td>正文已覆盖</td></tr>
+<tr><td>3</td><td>混淆矩阵与误差分析</td><td><a href="https://en.wikipedia.org/wiki/Image_moment" target="_blank" rel="noopener">Image moment</a> · <a href="https://en.wikipedia.org/wiki/Local_binary_patterns" target="_blank" rel="noopener">Local binary patterns</a></td><td>正文已覆盖</td></tr>
+<tr><td>4</td><td>标签噪声与长尾</td><td><a href="https://github.com/open-mmlab/mmpretrain" target="_blank" rel="noopener">MMPreTrain</a> · <a href="https://github.com/jacobgil/pytorch-grad-cam" target="_blank" rel="noopener">pytorch-grad-cam</a></td><td>正文已覆盖</td></tr>
+<tr><td>5</td><td>Grad-CAM 与归因方法</td><td><a href="https://github.com/jacobgil/pytorch-grad-cam" target="_blank" rel="noopener">pytorch-grad-cam</a> · <a href="https://github.com/pytorch/captum" target="_blank" rel="noopener">Captum</a></td><td>正文已覆盖</td></tr>
+<tr><td>6</td><td>分布外与校准</td><td><a href="https://github.com/open-mmlab/mmpretrain" target="_blank" rel="noopener">MMPreTrain</a> · <a href="https://github.com/jacobgil/pytorch-grad-cam" target="_blank" rel="noopener">pytorch-grad-cam</a></td><td>正文已覆盖</td></tr>
+</tbody></table></section>
+<section id="s20-1"><h2><span class="sec-num">§20.1</span>训练配方</h2>
+<p>同样的 ResNet-50，用 2015 年的配方和现代配方可以差出好几个百分点。常见组件：SGD+Momentum 或 AdamW、余弦/阶梯学习率衰减、warmup、权重衰减、标签平滑、MixUp/CutMix、随机擦除、EMA 权重平均、混合精度训练。它们大多是<strong>正则化与优化稳定性</strong>的不同手段，彼此会相互影响，因此比较架构时必须固定配方（这正是 ConvNeXt 论文的出发点）。</p>
+</section>
+<section id="s20-2"><h2><span class="sec-num">§20.2</span>误差分析先于换模型</h2>
+<ol><li>画<strong>混淆矩阵</strong>，找出成对混淆的类别；</li>
+<li>把错分样本按置信度排序，人工看前 50 张，区分<strong>标注错、样本模糊、类目定义重叠、模型真错</strong>；</li>
+<li>按子类/场景/光照切片统计指标，找系统性短板；</li>
+<li>再决定是补数据、改标注规范、重加权，还是换更大的模型。</li></ol>
+<p>长尾分布下常见的错误是只优化整体准确率：少数类召回极低却不影响总指标。类别重加权、重采样与解耦训练（先学表示再平衡分类器）是常用对策。</p>
+</section>
+<section id="s20-3"><h2><span class="sec-num">§20.3</span>可解释性与鲁棒性</h2>
+<p><strong>Grad-CAM</strong> 用目标类别对最后一层卷积特征的梯度做全局加权，得到粗粒度的类激活热力图；<strong>积分梯度</strong>、<strong>遮挡测试</strong>、<strong>显著图</strong>从不同角度给出归因。要注意：热力图说明“模型在哪里找到了证据”，<strong>不等于</strong>“模型为什么正确”，也不保证因果性；同一模型换一层、换一个类别就可能给出不同解释。</p>
+<p><strong>分布外（OOD）</strong>与<strong>对抗样本</strong>暴露的是另一个问题：模型可能依赖数据集里的捷径（背景、水印、拍摄设备）。上线前至少要做置信度校准、OOD 检测与关键切片的压力测试。</p>
+<pre class="code" data-file="inline" data-lang="Shell"><code>pip install torch torchvision timm pytorch-grad-cam captum
+python -c "import pytorch_grad_cam; print('grad-cam ready')"</code></pre>
+</section>
+<section id="repos"><h2><span class="sec-num">§</span>开源工程与实现链接</h2>
+<p>本章原理对应的官方 / 开源实现。建议先跑通最小复现命令，再按「推荐用法」改动一个变量做对照实验。</p>
+<div class="card tip"><p style="margin-bottom:0">推荐练习：对同一张误分类图同时出 Grad-CAM 热力图与 Top-5 置信度，写一段“模型依赖了什么线索”的分析。</p></div>
+<div class="repo-grid">
+<div class="repo-card">
+<h3><a href="https://github.com/open-mmlab/mmpretrain" target="_blank" rel="noopener">MMPreTrain</a></h3>
+<span class="tag">分类 · 官方/开源实现</span>
+<p>OpenMMLab 分类与预训练工具箱</p>
+<span class="why"><strong>怎么用</strong>：OpenMMLab 分类工具箱：配置文件化地复现训练配方与消融</span>
+<p style="margin:0"><code>https://github.com/open-mmlab/mmpretrain</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/huggingface/pytorch-image-models" target="_blank" rel="noopener">pytorch-image-models (timm)</a></h3>
+<span class="tag">分类 · 官方/开源实现</span>
+<p>数百个预训练分类骨干与训练脚本</p>
+<span class="why"><strong>怎么用</strong>：预训练权重 + 训练脚本，便于固定配方只换骨干</span>
+<p style="margin:0"><code>https://github.com/huggingface/pytorch-image-models</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/jacobgil/pytorch-grad-cam" target="_blank" rel="noopener">pytorch-grad-cam</a></h3>
+<span class="tag">分类 · 官方/开源实现</span>
+<p>Grad-CAM 等热力图方法的统一实现</p>
+<span class="why"><strong>怎么用</strong>：Grad-CAM / Score-CAM / Eigen-CAM 的统一实现，可对任意层出图</span>
+<p style="margin:0"><code>https://github.com/jacobgil/pytorch-grad-cam</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/pytorch/captum" target="_blank" rel="noopener">Captum</a></h3>
+<span class="tag">分类 · 官方/开源实现</span>
+<p>PyTorch 官方模型可解释性库</p>
+<span class="why"><strong>怎么用</strong>：PyTorch 官方归因库，含积分梯度与遮挡测试</span>
+<p style="margin:0"><code>https://github.com/pytorch/captum</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/Lightning-AI/torchmetrics" target="_blank" rel="noopener">TorchMetrics</a></h3>
+<span class="tag">评测 · 官方/开源实现</span>
+<p>mAP / IoU / Dice / PSNR 等指标的可靠实现</p>
+<span class="why"><strong>怎么用</strong>：混淆矩阵、每类 F1、校准误差的可靠实现</span>
+<p style="margin:0"><code>https://github.com/Lightning-AI/torchmetrics</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://distill.pub/" target="_blank" rel="noopener">Distill.pub</a></h3>
+<span class="tag">课程 · 官方/开源实现</span>
+<p>可视化解释深度学习与可解释性的高质量文章</p>
+<span class="why"><strong>怎么用</strong>：高质量可视化文章，帮助正确理解归因方法的边界</span>
+<p style="margin:0"><code>https://distill.pub/</code></p>
+</div>
+</div>
+<p class="code-hint">使用约定：以下仓库均为各自维护者的项目，本书与之无从属关系；请阅读其 README 与许可证后再用于课程或生产环境。更多资源见 <a href="#extra-links">扩展学习</a> 与 <a href="../../appendix/index.html">附录 A.3 开源工程总表</a>。</p>
+</section>
+<section id="pitfalls"><h2><span class="sec-num">§</span>常见误区</h2><div class="card warn"><ul><li>把热力图当因果解释：它只反映相关性，且对层与类别选择敏感。</li>
+<li>只看整体准确率：长尾类别可能在生产环境里恰好最关键。</li>
+<li>换了模型也换了训练配方：无法判断提升来自哪里。</li>
+<li>不做置信度校准：高置信度错误样本会静默进入下游。</li></ul></div></section>
+<section id="exercises"><h2><span class="sec-num">§</span>习题与思考</h2><ol><li>写出 Grad-CAM 的加权公式，并解释为什么用最后一个卷积层而不是全连接层。</li>
+<li>为 10 类长尾分类设计一组切片指标（至少 4 个切片），说明每个切片暴露什么风险。</li></ol></section>
+<section id="extra-links"><h2><span class="sec-num">§</span>扩展学习</h2>
+<p>以下资料按本章知识点挑选，可直接精读或对照源码；知识点地图里每一条也挂了 1～2 个直达链接。</p>
+<ul>
+<li><strong>MMPreTrain</strong>（分类）：OpenMMLab 分类与预训练工具箱<br><a href="https://github.com/open-mmlab/mmpretrain" target="_blank" rel="noopener">MMPreTrain</a></li>
+<li><strong>pytorch-grad-cam</strong>（分类）：Grad-CAM 等热力图方法的统一实现<br><a href="https://github.com/jacobgil/pytorch-grad-cam" target="_blank" rel="noopener">pytorch-grad-cam</a></li>
+<li><strong>Captum</strong>（分类）：PyTorch 官方模型可解释性库<br><a href="https://github.com/pytorch/captum" target="_blank" rel="noopener">Captum</a></li>
+<li><strong>TorchMetrics</strong>（评测）：mAP / IoU / Dice / PSNR 等指标的可靠实现<br><a href="https://github.com/Lightning-AI/torchmetrics" target="_blank" rel="noopener">TorchMetrics</a></li>
+<li><strong>Distill.pub</strong>（课程）：可视化解释深度学习与可解释性的高质量文章<br><a href="https://distill.pub/" target="_blank" rel="noopener">Distill.pub</a></li>
+</ul>
+<p class="code-hint">继续扩展：<a href="https://github.com/search?q=Grad-CAM%20image%20classification%20PyTorch&amp;type=repositories" target="_blank" rel="noopener">在 GitHub 检索本章相关开源工程</a> · <a href="https://www.google.com/search?q=Grad-CAM%20image%20classification%20PyTorch" target="_blank" rel="noopener">按本章主题检索资料</a> · <a href="../../index.html#resources">全书参考资源总表</a> · <a href="../../appendix/index.html">附录 A 速查与链接总表</a></p>
+</section>
+<section id="further"><h2><span class="sec-num">§</span>延伸阅读与内链</h2><ul><li><a href='../../part3/18-cnn-architectures/index.html'>第 18 章 经典 CNN 架构与迁移学习</a></li>
+<li><a href='../../part3/19-datasets-evaluation/index.html'>第 19 章 数据集与评测</a></li>
+<li><a href='../21-object-detection/index.html'>第 21 章 目标检测</a></li></ul></section>
+<footer class="pager" data-autofill></footer>
+<footer class="site-foot">
+<p class="credits"><strong>作者</strong>：汪亮（bertonwang）　<strong>联系邮箱</strong>：<a href="mailto:47608843@qq.com">47608843@qq.com</a></p>
+<p class="ai-note"><strong>AI 使用说明</strong>：本教材的知识框架、正文、Octave 示例代码与开源工程清单在 AI 辅助下整理生成，并经人工校订与静态自检。公式、数值与运行结果请以GNU Octave 实际输出及权威教材、官方文档为准；发现错漏欢迎通过上方邮箱勘误。</p>
+<p class="imprint">数字图像处理：从经典算法到智能方法 · 上卷每章一个 <code>code/*.m</code> Octave 脚本（由 <code>tools/extract_code.py</code> 从 HTML 同步） · 下卷给出官方开源工程链接 · GNU Octave 为自由软件，本书与之无从属关系。</p>
+</footer>
+</main>
+</body>
+</html>

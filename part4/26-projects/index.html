@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第 26 章 · 工程落地与综合项目 | 数字图像处理：从经典算法到智能方法</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script src="../../assets/toc.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</head>
+<body data-root="../../" data-chapter="26">
+<aside id="sidebar"></aside>
+<main class="book-page">
+<nav class="breadcrumb" data-autofill>总目录</nav>
+<header class="chapter-head">
+<span class="kicker">第四篇 · 视觉任务与工程落地</span>
+<h1><span class="ch-num">第 26 章</span>工程落地与综合项目</h1>
+<p class="lede">把模型变成可维护的系统：导出、加速、压缩、数据闭环，以及一个必须与传统基线同台对比的课程设计。</p>
+<div class="meta">
+<span class="badge done">已完稿</span>
+<span>建议 4 学时</span>
+<span>9 个开源工程</span>
+<span class="badge lower">下卷 · AI 算法</span>
+<span>数字图像处理：从经典算法到智能方法</span>
+</div></header>
+<div class="card objectives"><span class="card-label">学习目标</span><ul>
+<li>能画出训练到部署的完整链路与各环节产物</li>
+<li>能区分 PTQ 与 QAT、剪枝与蒸馏</li>
+<li>能设计标注质检、版本管理与线上回归方案</li>
+<li>能完成传统基线 vs 深度基线的对比实验报告</li>
+</ul></div>
+<section id="map"><h2><span class="sec-num">§</span>知识点地图</h2>
+<p class="code-hint">每个知识点都配了 1～2 个扩展学习链接；本章完整资源清单见 <a href="#extra-links">扩展学习</a>。</p>
+<table><thead><tr><th style="width:44px">#</th><th style="width:26%">知识点</th><th>扩展学习</th><th style="width:100px">状态</th></tr></thead><tbody>
+<tr><td>1</td><td>训练到部署链路</td><td><a href="https://github.com/microsoft/onnxruntime" target="_blank" rel="noopener">ONNX Runtime</a> · <a href="https://github.com/Tencent/ncnn" target="_blank" rel="noopener">ncnn</a></td><td>正文已覆盖</td></tr>
+<tr><td>2</td><td>ONNX 与算子兼容</td><td><a href="https://github.com/onnx/onnx" target="_blank" rel="noopener">ONNX</a> · <a href="https://github.com/microsoft/onnxruntime" target="_blank" rel="noopener">ONNX Runtime</a></td><td>正文已覆盖</td></tr>
+<tr><td>3</td><td>推理引擎选型</td><td><a href="https://github.com/onnx/onnx" target="_blank" rel="noopener">ONNX</a> · <a href="https://github.com/microsoft/onnxruntime" target="_blank" rel="noopener">ONNX Runtime</a></td><td>正文已覆盖</td></tr>
+<tr><td>4</td><td>量化 PTQ / QAT</td><td><a href="https://en.wikipedia.org/wiki/JPEG" target="_blank" rel="noopener">JPEG</a> · <a href="https://en.wikipedia.org/wiki/Discrete_cosine_transform" target="_blank" rel="noopener">Discrete cosine transform</a></td><td>正文已覆盖</td></tr>
+<tr><td>5</td><td>剪枝与蒸馏</td><td><a href="https://github.com/pytorch/pytorch" target="_blank" rel="noopener">PyTorch</a> · <a href="https://github.com/microsoft/onnxruntime" target="_blank" rel="noopener">ONNX Runtime</a></td><td>正文已覆盖</td></tr>
+<tr><td>6</td><td>标注质检与数据版本</td><td><a href="https://github.com/cvat-ai/cvat" target="_blank" rel="noopener">CVAT</a> · <a href="https://github.com/HumanSignal/label-studio" target="_blank" rel="noopener">Label Studio</a></td><td>正文已覆盖</td></tr>
+<tr><td>7</td><td>监控与回归测试</td><td><a href="https://github.com/onnx/onnx" target="_blank" rel="noopener">ONNX</a> · <a href="https://github.com/microsoft/onnxruntime" target="_blank" rel="noopener">ONNX Runtime</a></td><td>正文已覆盖</td></tr>
+<tr><td>8</td><td>传统基线 vs 深度基线</td><td><a href="https://github.com/pytorch/vision" target="_blank" rel="noopener">torchvision</a> · <a href="https://github.com/scikit-learn/scikit-learn" target="_blank" rel="noopener">scikit-learn</a></td><td>正文已覆盖</td></tr>
+<tr><td>9</td><td>伦理与偏差</td><td><a href="https://github.com/onnx/onnx" target="_blank" rel="noopener">ONNX</a> · <a href="https://github.com/microsoft/onnxruntime" target="_blank" rel="noopener">ONNX Runtime</a></td><td>正文已覆盖</td></tr>
+</tbody></table></section>
+<section id="s26-1"><h2><span class="sec-num">§26.1</span>部署链路与压缩</h2>
+<ol><li><strong>导出</strong>：PyTorch → ONNX（注意动态轴、算子兼容、自定义算子）；或直接用 TorchScript / 引擎原生格式。</li>
+<li><strong>选引擎</strong>：服务端 GPU 用 TensorRT，跨平台 CPU/GPU 用 ONNX Runtime，Intel 边缘用 OpenVINO，移动端用 ncnn / TFLite。</li>
+<li><strong>压缩</strong>：PTQ（训练后量化，需校准集）快但可能掉点；QAT（量化感知训练）更稳但需重训；结构化剪枝减通道，蒸馏把大模型能力迁到小模型。</li>
+<li><strong>验证</strong>：逐层比对浮点与量化输出、测 P50/P99 时延与内存峰值、在目标硬件上而非开发机上验收。</li></ol>
+<pre class="code" data-file="inline" data-lang="Shell"><code>pip install onnx onnxruntime onnxsim
+python -c "import onnx, onnxruntime; print(onnx.__version__, onnxruntime.__version__)"</code></pre>
+</section>
+<section id="s26-2"><h2><span class="sec-num">§26.2</span>数据闭环</h2>
+<p>上线不是终点。一个可维护的视觉系统需要：标注规范与抽检（CVAT / Label Studio）→ 数据集版本化 → 训练/评测脚本版本化 → 难例回流 → 定期回归测试集 → 线上分布漂移监控。<strong>回归测试集</strong>应包含历史出错样本与关键切片，每次发版都跑，防止“改 A 坏 B”。</p>
+<div class="card warn"><p style="margin-bottom:0">最常见的事故不是模型不准，而是<strong>预处理不一致</strong>：训练用 RGB + 归一化为 [0,1]，部署用 BGR + 0～255；或训练与推理的 resize / padding 策略不同。务必把预处理写进同一份配置并与模型一起导出。</p></div>
+</section>
+<section id="s26-3"><h2><span class="sec-num">§26.3</span>综合课程设计：两条基线同台</h2>
+<p>题目（与<a href="../../part2/15-classical-pipeline/index.html">第 15 章</a>完全相同的颗粒计数任务）要求交付两份实现：</p>
+<table><thead><tr><th>维度</th><th>传统基线</th><th>深度基线</th></tr></thead><tbody>
+<tr><td>实现</td><td>第 15 章 Octave 流水线</td><td>U-Net / YOLO 实例分割（任选其一）</td></tr>
+<tr><td>数据需求</td><td>一张图 + 少量调参</td><td>标注集、划分文件、训练脚本</td></tr>
+<tr><td>可解释性</td><td>每步可写公式、参数有物理含义</td><td>需消融与热力图</td></tr>
+<tr><td>失效方式</td><td>光照/粘连/噪声破坏假设</td><td>分布外、标注偏差</td></tr>
+<tr><td>工程成本</td><td>零依赖、CPU 秒级</td><td>GPU、权重管理、部署链路</td></tr>
+</tbody></table>
+<p><strong>报告必须回答</strong>：哪些环节值得换成网络？换成网络后，可解释性、数据成本与维护成本各增加了多少？给出定量对比表（计数误差、面积误差、推理时延、标注工时、代码行数），而不是只给一句“深度学习更准”。</p>
+</section>
+<section id="s26-4"><h2><span class="sec-num">§26.4</span>伦理、偏差与交付清单</h2>
+<ul><li>标注与训练数据的<strong>人群/场景覆盖</strong>是否均衡，关键切片指标是否单独报告；</li>
+<li>出错时的<strong>降级策略</strong>（低置信度转人工、规则兜底）；</li>
+<li>模型权重、数据集、预处理配置、随机种子与评测脚本是否齐全；</li>
+<li>外部依赖的许可证与数据来源是否合规；</li>
+<li>是否存在会误导下游的“看起来更好”的指标（第 19、23 章）。</li></ul>
+</section>
+<section id="repos"><h2><span class="sec-num">§</span>开源工程与实现链接</h2>
+<p>本章原理对应的官方 / 开源实现。建议先跑通最小复现命令，再按「推荐用法」改动一个变量做对照实验。</p>
+<div class="card tip"><p style="margin-bottom:0">交付物清单：两份可运行实现、一份对比表、一个回归测试集、一条一键重跑命令。</p></div>
+<div class="repo-grid">
+<div class="repo-card">
+<h3><a href="https://github.com/onnx/onnx" target="_blank" rel="noopener">ONNX</a></h3>
+<span class="tag">部署 · 官方/开源实现</span>
+<p>跨框架模型交换格式</p>
+<span class="why"><strong>怎么用</strong>：跨框架交换格式，导出训练模型的第一站</span>
+<p style="margin:0"><code>https://github.com/onnx/onnx</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/microsoft/onnxruntime" target="_blank" rel="noopener">ONNX Runtime</a></h3>
+<span class="tag">部署 · 官方/开源实现</span>
+<p>跨平台高性能推理引擎</p>
+<span class="why"><strong>怎么用</strong>：跨平台推理引擎，含量化工具与性能分析</span>
+<p style="margin:0"><code>https://github.com/microsoft/onnxruntime</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/NVIDIA/TensorRT" target="_blank" rel="noopener">TensorRT</a></h3>
+<span class="tag">部署 · 官方/开源实现</span>
+<p>GPU 推理优化与量化</p>
+<span class="why"><strong>怎么用</strong>：NVIDIA GPU 推理优化与 INT8 量化</span>
+<p style="margin:0"><code>https://github.com/NVIDIA/TensorRT</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/openvinotoolkit/openvino" target="_blank" rel="noopener">OpenVINO</a></h3>
+<span class="tag">部署 · 官方/开源实现</span>
+<p>Intel CPU/GPU 推理优化</p>
+<span class="why"><strong>怎么用</strong>：Intel CPU/iGPU 部署优化</span>
+<p style="margin:0"><code>https://github.com/openvinotoolkit/openvino</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/Tencent/ncnn" target="_blank" rel="noopener">ncnn</a></h3>
+<span class="tag">部署 · 官方/开源实现</span>
+<p>移动端轻量推理框架</p>
+<span class="why"><strong>怎么用</strong>：移动端轻量推理框架，无第三方依赖</span>
+<p style="margin:0"><code>https://github.com/Tencent/ncnn</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/cvat-ai/cvat" target="_blank" rel="noopener">CVAT</a></h3>
+<span class="tag">标注 · 官方/开源实现</span>
+<p>开源标注平台，支持框/多边形/关键点</p>
+<span class="why"><strong>怎么用</strong>：标注与质检平台，支持难例回流</span>
+<p style="margin:0"><code>https://github.com/cvat-ai/cvat</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/HumanSignal/label-studio" target="_blank" rel="noopener">Label Studio</a></h3>
+<span class="tag">标注 · 官方/开源实现</span>
+<p>通用数据标注与质检工具</p>
+<span class="why"><strong>怎么用</strong>：通用标注与审核流程</span>
+<p style="margin:0"><code>https://github.com/HumanSignal/label-studio</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/ultralytics/ultralytics" target="_blank" rel="noopener">Ultralytics YOLO</a></h3>
+<span class="tag">检测 · 官方/开源实现</span>
+<p>YOLOv8/11 官方工程，一行命令训练与推理</p>
+<span class="why"><strong>怎么用</strong>：一行命令导出 ONNX / TensorRT，适合做端到端链路演示</span>
+<p style="margin:0"><code>https://github.com/ultralytics/ultralytics</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/Lightning-AI/torchmetrics" target="_blank" rel="noopener">TorchMetrics</a></h3>
+<span class="tag">评测 · 官方/开源实现</span>
+<p>mAP / IoU / Dice / PSNR 等指标的可靠实现</p>
+<span class="why"><strong>怎么用</strong>：发版回归测试中的统一指标实现</span>
+<p style="margin:0"><code>https://github.com/Lightning-AI/torchmetrics</code></p>
+</div>
+</div>
+<p class="code-hint">使用约定：以下仓库均为各自维护者的项目，本书与之无从属关系；请阅读其 README 与许可证后再用于课程或生产环境。更多资源见 <a href="#extra-links">扩展学习</a> 与 <a href="../../appendix/index.html">附录 A.3 开源工程总表</a>。</p>
+</section>
+<section id="pitfalls"><h2><span class="sec-num">§</span>常见误区</h2><div class="card warn"><ul><li>只在开发机上测时延：目标硬件的内存与算子支持可能完全不同。</li>
+<li>训练与推理预处理不一致：最常见、最隐蔽的线上精度事故。</li>
+<li>没有回归测试集：每次优化都可能悄悄破坏旧场景。</li>
+<li>只比精度不比标注工时与维护成本：结论对工程决策没有价值。</li></ul></div></section>
+<section id="exercises"><h2><span class="sec-num">§</span>习题与思考</h2><ol><li>为第 15 章的颗粒计数任务写一份两基线对比实验计划，包含数据划分、指标、消融与交付物。</li>
+<li>列出导出 ONNX 后需要逐项核对的 5 件事（含预处理与动态轴）。</li></ol></section>
+<section id="extra-links"><h2><span class="sec-num">§</span>扩展学习</h2>
+<p>以下资料按本章知识点挑选，可直接精读或对照源码；知识点地图里每一条也挂了 1～2 个直达链接。</p>
+<ul>
+<li><strong>ONNX</strong>（部署）：跨框架模型交换格式<br><a href="https://github.com/onnx/onnx" target="_blank" rel="noopener">ONNX</a></li>
+<li><strong>ONNX Runtime</strong>（部署）：跨平台高性能推理引擎<br><a href="https://github.com/microsoft/onnxruntime" target="_blank" rel="noopener">ONNX Runtime</a></li>
+<li><strong>TensorRT</strong>（部署）：GPU 推理优化与量化<br><a href="https://github.com/NVIDIA/TensorRT" target="_blank" rel="noopener">TensorRT</a></li>
+<li><strong>OpenVINO</strong>（部署）：Intel CPU/GPU 推理优化<br><a href="https://github.com/openvinotoolkit/openvino" target="_blank" rel="noopener">OpenVINO</a></li>
+<li><strong>ncnn</strong>（部署）：移动端轻量推理框架<br><a href="https://github.com/Tencent/ncnn" target="_blank" rel="noopener">ncnn</a></li>
+</ul>
+<p class="code-hint">继续扩展：<a href="https://github.com/search?q=model%20deployment%20quantization%20pruning%20CV&amp;type=repositories" target="_blank" rel="noopener">在 GitHub 检索本章相关开源工程</a> · <a href="https://www.google.com/search?q=model%20deployment%20quantization%20pruning%20CV" target="_blank" rel="noopener">按本章主题检索资料</a> · <a href="../../index.html#resources">全书参考资源总表</a> · <a href="../../appendix/index.html">附录 A 速查与链接总表</a></p>
+</section>
+<section id="further"><h2><span class="sec-num">§</span>延伸阅读与内链</h2><ul><li><a href='../../part2/15-classical-pipeline/index.html'>第 15 章 传统算法综合实验（同任务基线）</a></li>
+<li><a href='../../part3/19-datasets-evaluation/index.html'>第 19 章 评测与可复现清单</a></li>
+<li><a href='../../appendix/index.html'>附录 A 速查与资源总表</a></li></ul></section>
+<footer class="pager" data-autofill></footer>
+<footer class="site-foot">
+<p class="credits"><strong>作者</strong>：汪亮（bertonwang）　<strong>联系邮箱</strong>：<a href="mailto:47608843@qq.com">47608843@qq.com</a></p>
+<p class="ai-note"><strong>AI 使用说明</strong>：本教材的知识框架、正文、Octave 示例代码与开源工程清单在 AI 辅助下整理生成，并经人工校订与静态自检。公式、数值与运行结果请以GNU Octave 实际输出及权威教材、官方文档为准；发现错漏欢迎通过上方邮箱勘误。</p>
+<p class="imprint">数字图像处理：从经典算法到智能方法 · 上卷每章一个 <code>code/*.m</code> Octave 脚本（由 <code>tools/extract_code.py</code> 从 HTML 同步） · 下卷给出官方开源工程链接 · GNU Octave 为自由软件，本书与之无从属关系。</p>
+</footer>
+</main>
+</body>
+</html>

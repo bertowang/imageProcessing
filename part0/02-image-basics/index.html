@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第 02 章 · 图像的数学表示与运算约定 | 数字图像处理：从经典算法到智能方法</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script src="../../assets/toc.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</head>
+<body data-root="../../" data-chapter="02">
+<aside id="sidebar"></aside>
+<main class="book-page">
+<nav class="breadcrumb" data-autofill>总目录</nav>
+<header class="chapter-head">
+<span class="kicker">卷首 · 工具与约定</span>
+<h1><span class="ch-num">第 02 章</span>图像的数学表示与运算约定</h1>
+<p class="lede">采样量化、卷积与相关、边界处理、质量评价：把后面所有章节共用的四件事一次讲清。</p>
+<div class="meta">
+<span class="badge done">已完稿</span>
+<span>建议 3 学时</span>
+<span>1 个 Octave 实例</span>
+<span class="badge upper">上卷 · 传统算法</span>
+<span>数字图像处理：从经典算法到智能方法</span>
+</div></header>
+<div class="card objectives"><span class="card-label">学习目标</span><ul>
+<li>能写出二维离散卷积与相关的定义并说明差别</li>
+<li>能解释四种边界填充对滤波结果的影响</li>
+<li>会手算 MSE / PSNR 并说明为什么它不等于视觉质量</li>
+<li>能用核心函数实现一个带边界处理的二维卷积</li>
+</ul></div>
+<section id="map"><h2><span class="sec-num">§</span>知识点地图</h2>
+<p class="code-hint">每个知识点都配了 1～2 个扩展学习链接；本章完整资源清单见 <a href="#extra-links">扩展学习</a>。</p>
+<table><thead><tr><th style="width:44px">#</th><th style="width:26%">知识点</th><th>扩展学习</th><th style="width:100px">状态</th></tr></thead><tbody>
+<tr><td>1</td><td>采样与量化</td><td><a href="https://en.wikipedia.org/wiki/JPEG" target="_blank" rel="noopener">JPEG</a> · <a href="https://en.wikipedia.org/wiki/Discrete_cosine_transform" target="_blank" rel="noopener">Discrete cosine transform</a></td><td>正文已覆盖</td></tr>
+<tr><td>2</td><td>直方图与统计量</td><td><a href="https://en.wikipedia.org/wiki/Histogram_equalization" target="_blank" rel="noopener">Histogram equalization</a> · <a href="https://en.wikipedia.org/wiki/Adaptive_histogram_equalization" target="_blank" rel="noopener">Adaptive histogram equalization</a></td><td>正文已覆盖</td></tr>
+<tr><td>3</td><td>卷积与相关</td><td><a href="https://en.wikipedia.org/wiki/Convolution" target="_blank" rel="noopener">Convolution</a> · <a href="https://en.wikipedia.org/wiki/Kernel_(image_processing)" target="_blank" rel="noopener">Kernel (image processing)</a></td><td>正文已覆盖</td></tr>
+<tr><td>4</td><td>边界填充策略</td><td><a href="https://en.wikipedia.org/wiki/Convolution" target="_blank" rel="noopener">Convolution</a> · <a href="https://scikit-image.org/docs/stable/user_guide/" target="_blank" rel="noopener">scikit-image User Guide</a></td><td>正文已覆盖</td></tr>
+<tr><td>5</td><td>线性移不变系统</td><td><a href="https://numpy.org/doc/stable/" target="_blank" rel="noopener">NumPy 文档</a> · <a href="https://en.wikipedia.org/wiki/Convolution" target="_blank" rel="noopener">Convolution</a></td><td>正文已覆盖</td></tr>
+<tr><td>6</td><td>MSE / PSNR / SSIM</td><td><a href="https://en.wikipedia.org/wiki/Peak_signal-to-noise_ratio" target="_blank" rel="noopener">Peak signal-to-noise ratio</a> · <a href="https://en.wikipedia.org/wiki/Structural_similarity" target="_blank" rel="noopener">Structural similarity</a></td><td>正文已覆盖</td></tr>
+</tbody></table></section>
+<section id="s2-1"><h2><span class="sec-num">§2.1</span>采样、量化与直方图</h2>
+<p>连续场景经<strong>空间采样</strong>变成 <code>M×N</code> 网格，再经<strong>幅度量化</strong>变成有限灰度级。采样决定分辨率与混叠，量化决定位深（8 bit = 256 级）。本书把灰度统一归一化到 <code>[0,1]</code>，因此位深只在读写文件时出现。</p>
+<p>直方图 <code>h(k)</code> 统计灰度级 <code>k</code> 的像素数，归一化后是概率质量函数 <code>p(k)=h(k)/(MN)</code>。一阶统计量（均值、方差）描述整体亮度与对比度，但<strong>丢掉了空间结构</strong>：两张完全不同的图可以有完全相同的直方图，第 05 章的相位实验会把这一点展示得很彻底。</p>
+</section>
+<section id="s2-2"><h2><span class="sec-num">§2.2</span>卷积、相关与边界</h2>
+<p>线性移不变滤波由卷积定义，<code>g(r,c) = ΣΣ f(r−i,c−j)·w(i,j)</code>；相关只差一个核翻转：<code>g(r,c) = ΣΣ f(r+i,c+j)·w(i,j)</code>。数学卷积要翻转核，图像处理里常把“已翻转好的模板”称为卷积核，于是两者代码一样。本书统一用 <code>conv2</code>，并在注释里写明是否翻转。</p>
+<span class="eq">g = f ∗ w，　G(u,v) = F(u,v) · H(u,v)</span>
+<table><thead><tr><th>边界策略</th><th>做法</th><th>后果</th></tr></thead><tbody>
+<tr><td>zero / 补零</td><td>外侧填 0</td><td>边缘出现暗边，简单且最常用</td></tr>
+<tr><td>replicate</td><td>复制最外圈像素</td><td>边缘平滑，适合去噪</td></tr>
+<tr><td>symmetric</td><td>镜像反射</td><td>避免人为边缘，梯度更自然</td></tr>
+<tr><td>circular / 周期</td><td>首尾相接</td><td>与 DFT 假设一致，频域滤波默认</td></tr>
+</tbody></table>
+<p><strong>尺寸约定</strong>：<code>conv2(f,w,"same")</code> 返回与 <code>f</code> 同尺寸；<code>"valid"</code> 只保留核完全落在图内的部分，输出会缩小 <code>(k−1)</code>。核尺寸取奇数是为了有明确中心。</p>
+</section>
+<section id="s2-3"><h2><span class="sec-num">§2.3</span>线性移不变系统与点扩散函数</h2>
+<p>若成像系统满足线性与移不变，它对点光源的响应 <code>h</code>（点扩散函数，PSF）就完整描述了系统：输出是 <code>f∗h</code>。于是“模糊”可以被建模、“去模糊”可以被写成反卷积（第 06 章）。空间域卷积对应频域逐点相乘，这是第 05 章全部内容的起点。</p>
+<p class="code-hint">这条链条是上卷的主干：<strong>PSF → 卷积 → 频域乘积 → 逆滤波/维纳滤波 → 复原</strong>。下卷的超分与去噪网络，本质上仍在学习一个更好的逆映射，只是先验由数据给出而不是由公式给出。</p>
+</section>
+<section id="s2-4"><h2><span class="sec-num">§2.4</span>质量评价：MSE、PSNR 与 SSIM</h2>
+<span class="eq">MSE = (1/MN)Σ(f−ĝ)²,　PSNR = 10·log₁₀(L²/MSE)，本书 L = 1</span>
+<p>PSNR 只衡量逐像素误差，对结构错位、模糊、感知质量都不敏感；SSIM 把比较拆成<strong>亮度、对比度、结构</strong>三项，更接近人眼，但仍不是感知质量的终点（下卷会用 LPIPS、FID 等基于特征的指标）。</p>
+<div class="card warn"><p style="margin-bottom:0"><strong>评价的铁律</strong>：有参考图才能算 PSNR/SSIM；无参考的真实去噪任务只能用噪声估计、人工评分或下游任务指标。数值变好但看起来更糊，通常说明你优化错了目标。</p></div>
+</section>
+<section id="lab"><h2><span class="sec-num">§</span>Octave 实例</h2>
+<h3>手写二维卷积、边界填充与 PSNR</h3>
+<pre class="code" data-file="code/02-conv-and-psnr.m" data-lang="GNU Octave"><code>%% 02-conv-and-psnr.m | 二维卷积 / 边界策略 / MSE-PSNR 的一致性
+%% GNU Octave，零第三方依赖；合成图像，无需任何外部文件
+clear; close all; clc;
+SHOW = ~strcmp(getenv("IP_HEADLESS"), "1");
+% ---- 参数区 ----
+N = 64; noise_sigma = 0.05; k = 3; randn("seed", 11);
+% ---- 造图：中心方块 ----
+[X, Y] = meshgrid(1:N, 1:N);
+f = double(X &gt; N/4 &amp; X &lt; 3*N/4 &amp; Y &gt; N/4 &amp; Y &lt; 3*N/4);
+% ---- 算法 1：盒式核 + 补零卷积（与 conv2 对照）----
+w = ones(k, k) / (k*k);
+g_zero = conv2(f, w, "same");
+pad = (k-1)/2;
+fp = zeros(N + 2*pad, N + 2*pad);
+fp(pad+1:pad+N, pad+1:pad+N) = f;       % zero padding
+g_manual = zeros(N, N);
+for r = 1:N
+  for c = 1:N
+    g_manual(r,c) = sum(sum(fp(r:r+k-1, c:c+k-1) .* w));
+  end
+end
+printf("核元素和 = %.6f（应为 1）\n", sum(w(:)));
+printf("手写卷积与 conv2 的最大差 = %.3e\n", max(abs(g_manual(:)-g_zero(:))));
+% ---- 算法 2：replicate 边界 ----
+fr = [repmat(f(1,:), pad, 1); f; repmat(f(end,:), pad, 1)];
+fr = [repmat(fr(:,1), 1, pad), fr, repmat(fr(:,end), 1, pad)];
+g_rep = conv2(fr, w, "valid");
+printf("角落像素 zero=%.4f replicate=%.4f（差异来自边界）\n", g_zero(1,1), g_rep(1,1));
+% ---- 算法 3：MSE / PSNR ----
+g_noisy = min(max(f + noise_sigma*randn(N,N), 0), 1);
+mse = mean((g_noisy(:) - f(:)).^2);
+printf("加噪后 MSE=%.6f, PSNR=%.2f dB（理论约 %.2f dB）\n", ...
+       mse, 10*log10(1/mse), 10*log10(1/noise_sigma^2));
+% ---- 可视化 ----
+if SHOW
+  figure("name", "02 卷积与边界");
+  subplot(1, 3, 1); imagesc(f, [0 1]); colormap gray; axis image off; title("原图");
+  subplot(1, 3, 2); imagesc(g_zero, [0 1]); axis image off; title("zero 卷积");
+  subplot(1, 3, 3); imagesc(g_rep, [0 1]); axis image off; title("replicate 卷积");
+end</code></pre>
+<p class="code-hint"><strong>操作：</strong>运行后重点看第二行数值（应接近机器精度）；把 &lt;code&gt;k&lt;/code&gt; 改成 5、&lt;code&gt;noise_sigma&lt;/code&gt; 改成 0.1 再跑。　<strong>预期与判读：</strong>核和为 1；手写循环与 conv2 的最大差约 0（浮点误差）；zero 边界角落更暗；PSNR 约 26 dB，与 10·log10(1/σ²) 一致。　文件位置：<code>part0/02-image-basics/code/02-conv-and-psnr.m</code></p>
+<div class="card note"><p style="margin-bottom:0">代码块右上角可一键复制；本仓库 <code>code/*.m</code> 由 <code>tools/extract_code.py</code> 从这些代码块自动抽取，页面与脚本永远一致。脚本只用 Octave 核心函数，设 <code>IP_HEADLESS=1</code> 可跳过绘图。</p></div>
+</section>
+<section id="pitfalls"><h2><span class="sec-num">§</span>常见误区</h2><div class="card warn"><ul><li>把相关当卷积却忘了翻转核：对称核无差别，非对称梯度核会差一个方向。</li>
+<li>用 &lt;code&gt;conv2(...,"valid")&lt;/code&gt; 后仍按原尺寸索引，导致维度不匹配。</li>
+<li>对 uint8 直接算 MSE：溢出会给出完全错误的结果。</li>
+<li>只报 PSNR 不附视觉结果：PSNR 高不代表结构被正确恢复。</li></ul></div></section>
+<section id="exercises"><h2><span class="sec-num">§</span>习题与思考</h2><ol><li>把 02 的盒式核换成 &lt;code&gt;[0 1 0; 1 -4 1; 0 1 0]&lt;/code&gt;，解释输出在方块边缘出现正负值的原因。</li>
+<li>推导：当噪声服从 N(0,σ²) 时，为什么 PSNR ≈ 10·log10(1/σ²)？用脚本验证 σ=0.1 的情形。</li></ol></section>
+<section id="extra-links"><h2><span class="sec-num">§</span>扩展学习</h2>
+<p>以下资料按本章知识点挑选，可直接精读或对照源码；知识点地图里每一条也挂了 1～2 个直达链接。</p>
+<ul>
+<li><strong>NumPy 文档</strong>（文档）：数组与广播规则；理解图像即矩阵的必经之路<br><a href="https://numpy.org/doc/stable/" target="_blank" rel="noopener">NumPy 文档</a></li>
+<li><strong>Convolution</strong>（百科）：线性滤波的数学定义与性质<br><a href="https://en.wikipedia.org/wiki/Convolution" target="_blank" rel="noopener">Convolution</a></li>
+<li><strong>Digital image processing</strong>（百科）：学科总览与术语索引<br><a href="https://en.wikipedia.org/wiki/Digital_image_processing" target="_blank" rel="noopener">Digital image processing</a></li>
+<li><strong>Peak signal-to-noise ratio</strong>（百科）：基于 MSE 的复原评价指标及其局限<br><a href="https://en.wikipedia.org/wiki/Peak_signal-to-noise_ratio" target="_blank" rel="noopener">Peak signal-to-noise ratio</a></li>
+<li><strong>Structural similarity</strong>（百科）：结构相似度的亮度/对比度/结构三项<br><a href="https://en.wikipedia.org/wiki/Structural_similarity" target="_blank" rel="noopener">Structural similarity</a></li>
+</ul>
+<p class="code-hint">继续扩展：<a href="https://github.com/search?q=image%20as%20matrix%20convolution%20boundary%20handling&amp;type=repositories" target="_blank" rel="noopener">在 GitHub 检索本章相关开源工程</a> · <a href="https://www.google.com/search?q=image%20as%20matrix%20convolution%20boundary%20handling" target="_blank" rel="noopener">按本章主题检索资料</a> · <a href="../../index.html#resources">全书参考资源总表</a> · <a href="../../appendix/index.html">附录 A 速查与链接总表</a></p>
+</section>
+<section id="further"><h2><span class="sec-num">§</span>延伸阅读与内链</h2><ul><li><a href='../../part1/04-spatial-filter/index.html'>第 4 章 空间域滤波</a></li>
+<li><a href='../../part1/05-frequency-domain/index.html'>第 5 章 频域处理</a></li>
+<li><a href='../../part1/06-restoration/index.html'>第 6 章 图像复原与去噪</a></li></ul></section>
+<footer class="pager" data-autofill></footer>
+<footer class="site-foot">
+<p class="credits"><strong>作者</strong>：汪亮（bertonwang）　<strong>联系邮箱</strong>：<a href="mailto:47608843@qq.com">47608843@qq.com</a></p>
+<p class="ai-note"><strong>AI 使用说明</strong>：本教材的知识框架、正文、Octave 示例代码与开源工程清单在 AI 辅助下整理生成，并经人工校订与静态自检。公式、数值与运行结果请以GNU Octave 实际输出及权威教材、官方文档为准；发现错漏欢迎通过上方邮箱勘误。</p>
+<p class="imprint">数字图像处理：从经典算法到智能方法 · 上卷每章一个 <code>code/*.m</code> Octave 脚本（由 <code>tools/extract_code.py</code> 从 HTML 同步） · 下卷给出官方开源工程链接 · GNU Octave 为自由软件，本书与之无从属关系。</p>
+</footer>
+</main>
+</body>
+</html>

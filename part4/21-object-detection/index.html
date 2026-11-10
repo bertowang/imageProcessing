@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第 21 章 · 目标检测 | 数字图像处理：从经典算法到智能方法</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script src="../../assets/toc.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</head>
+<body data-root="../../" data-chapter="21">
+<aside id="sidebar"></aside>
+<main class="book-page">
+<nav class="breadcrumb" data-autofill>总目录</nav>
+<header class="chapter-head">
+<span class="kicker">第四篇 · 视觉任务与工程落地</span>
+<h1><span class="ch-num">第 21 章</span>目标检测</h1>
+<p class="lede">从“先找候选框再分类”到“一次前向直接出框”，再到“用集合预测去掉所有手工组件”，是一条不断删掉人工先验的路。</p>
+<div class="meta">
+<span class="badge done">已完稿</span>
+<span>建议 4 学时</span>
+<span>8 个开源工程</span>
+<span class="badge lower">下卷 · AI 算法</span>
+<span>数字图像处理：从经典算法到智能方法</span>
+</div></header>
+<div class="card objectives"><span class="card-label">学习目标</span><ul>
+<li>能说清 IoU、NMS 与 mAP 的计算关系</li>
+<li>能对比两阶段、单阶段与 DETR 三类范式</li>
+<li>理解 anchor 与 anchor-free 的取舍</li>
+<li>能为给定部署场景选择检测方案并说明代价</li>
+</ul></div>
+<section id="map"><h2><span class="sec-num">§</span>知识点地图</h2>
+<p class="code-hint">每个知识点都配了 1～2 个扩展学习链接；本章完整资源清单见 <a href="#extra-links">扩展学习</a>。</p>
+<table><thead><tr><th style="width:44px">#</th><th style="width:26%">知识点</th><th>扩展学习</th><th style="width:100px">状态</th></tr></thead><tbody>
+<tr><td>1</td><td>任务定义与框表示</td><td><a href="https://github.com/ultralytics/ultralytics" target="_blank" rel="noopener">Ultralytics YOLO</a> · <a href="https://github.com/open-mmlab/mmdetection" target="_blank" rel="noopener">MMDetection</a></td><td>正文已覆盖</td></tr>
+<tr><td>2</td><td>IoU / NMS / mAP</td><td><a href="https://github.com/cocodataset/cocoapi" target="_blank" rel="noopener">COCO API</a> · <a href="https://en.wikipedia.org/wiki/Object_detection" target="_blank" rel="noopener">Object detection</a></td><td>正文已覆盖</td></tr>
+<tr><td>3</td><td>R-CNN 家族</td><td><a href="https://github.com/facebookresearch/detectron2" target="_blank" rel="noopener">Detectron2</a> · <a href="https://github.com/open-mmlab/mmdetection" target="_blank" rel="noopener">MMDetection</a></td><td>正文已覆盖</td></tr>
+<tr><td>4</td><td>YOLO / SSD / RetinaNet</td><td><a href="https://github.com/ultralytics/ultralytics" target="_blank" rel="noopener">Ultralytics YOLO</a> · <a href="https://github.com/ultralytics/yolov5" target="_blank" rel="noopener">YOLOv5</a></td><td>正文已覆盖</td></tr>
+<tr><td>5</td><td>Focal Loss 与类别不平衡</td><td><a href="https://github.com/ultralytics/ultralytics" target="_blank" rel="noopener">Ultralytics YOLO</a> · <a href="https://github.com/open-mmlab/mmdetection" target="_blank" rel="noopener">MMDetection</a></td><td>正文已覆盖</td></tr>
+<tr><td>6</td><td>Anchor-free 与 FCOS</td><td><a href="https://github.com/ultralytics/ultralytics" target="_blank" rel="noopener">Ultralytics YOLO</a> · <a href="https://github.com/open-mmlab/mmdetection" target="_blank" rel="noopener">MMDetection</a></td><td>正文已覆盖</td></tr>
+<tr><td>7</td><td>DETR 与集合预测</td><td><a href="https://github.com/facebookresearch/detr" target="_blank" rel="noopener">DETR</a> · <a href="https://en.wikipedia.org/wiki/Object_detection" target="_blank" rel="noopener">Object detection</a></td><td>正文已覆盖</td></tr>
+<tr><td>8</td><td>开放词表检测</td><td><a href="https://github.com/ultralytics/ultralytics" target="_blank" rel="noopener">Ultralytics YOLO</a> · <a href="https://github.com/open-mmlab/mmdetection" target="_blank" rel="noopener">MMDetection</a></td><td>正文已覆盖</td></tr>
+</tbody></table></section>
+<section id="s21-1"><h2><span class="sec-num">§21.1</span>任务定义与评测</h2>
+<p>输出是一组 <code>(类别, 置信度, 框)</code>，框常用 <code>(x, y, w, h)</code> 或 <code>(x1, y1, x2, y2)</code>。预测与真值用 <strong>IoU</strong> 匹配，超过阈值算真正例；按置信度排序得到 PR 曲线，其面积即 AP，多类平均即 mAP。<strong>NMS</strong> 删除与高分框重叠超过阈值的冗余框——它就是第 10 章非极大抑制思想在框层面的复用。</p>
+<div class="card note"><p style="margin-bottom:0">检测与分类最大的差别是<strong>极度类别不平衡</strong>：一张图里可能有上万个候选位置，真正包含目标的只有几个。这直接催生了 Focal Loss 与两阶段方法的采样策略。</p></div>
+</section>
+<section id="s21-2"><h2><span class="sec-num">§21.2</span>三种范式</h2>
+<table><thead><tr><th>范式</th><th>代表</th><th>核心思路</th><th>取舍</th></tr></thead><tbody>
+<tr><td>两阶段</td><td>R-CNN → Fast → Faster R-CNN → Mask R-CNN</td><td>先生成候选区域（RPN），再对每个区域分类与回归</td><td>精度高、小目标好；速度较慢</td></tr>
+<tr><td>单阶段</td><td>YOLO 系列、SSD、RetinaNet</td><td>在特征图每个位置直接预测框与类别</td><td>快、适合实时；早期精度落后，已被逐步追平</td></tr>
+<tr><td>集合预测</td><td>DETR 及其变体</td><td>Transformer + 匈牙利匹配，端到端出固定数量预测</td><td>去掉 anchor 与 NMS；收敛慢、小目标需额外设计</td></tr>
+</tbody></table>
+<p><strong>Anchor-free</strong>（FCOS、YOLOX 等）直接预测点到框四边的距离，省去 anchor 尺寸聚类这组超参；<strong>Focal Loss</strong> 降低易分负样本的权重，让训练聚焦困难样本。</p>
+</section>
+<section id="s21-3"><h2><span class="sec-num">§21.3</span>工程选择与开放词表</h2>
+<ul><li><strong>实时/边缘</strong>：YOLO 系列 + 量化 + TensorRT，优先看 FPS 与功耗。</li>
+<li><strong>高精度/研究</strong>：MMDetection 或 Detectron2，配置文件化便于消融。</li>
+<li><strong>类别会变</strong>：GroundingDINO 等开放词表检测用文本提示指定类别，避免每加一类就重训。</li></ul>
+<p>不要忘记<strong>标注一致性</strong>：框该不该包含遮挡部分、截断目标怎么标，直接决定 mAP 的天花板。第 19 章的官方评测脚本必须用上。</p>
+<pre class="code" data-file="inline" data-lang="Shell"><code>pip install ultralytics
+yolo predict model=yolov8n.pt source=bus.jpg   # 一行命令跑通官方预训练检测</code></pre>
+</section>
+<section id="repos"><h2><span class="sec-num">§</span>开源工程与实现链接</h2>
+<p>本章原理对应的官方 / 开源实现。建议先跑通最小复现命令，再按「推荐用法」改动一个变量做对照实验。</p>
+<div class="card tip"><p style="margin-bottom:0">建议实验：同一数据集上跑 YOLO 与 Faster R-CNN，分别记录 mAP@0.5:0.95、FPS 与小目标 AP。</p></div>
+<div class="repo-grid">
+<div class="repo-card">
+<h3><a href="https://github.com/ultralytics/ultralytics" target="_blank" rel="noopener">Ultralytics YOLO</a></h3>
+<span class="tag">检测 · 官方/开源实现</span>
+<p>YOLOv8/11 官方工程，一行命令训练与推理</p>
+<span class="why"><strong>怎么用</strong>：YOLOv8/11 官方工程，训练/验证/导出一条命令完成，最适合上手</span>
+<p style="margin:0"><code>https://github.com/ultralytics/ultralytics</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/ultralytics/yolov5" target="_blank" rel="noopener">YOLOv5</a></h3>
+<span class="tag">检测 · 官方/开源实现</span>
+<p>工程化程度极高的单阶段检测器</p>
+<span class="why"><strong>怎么用</strong>：社区生态极成熟的单阶段检测器，含大量部署教程</span>
+<p style="margin:0"><code>https://github.com/ultralytics/yolov5</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/open-mmlab/mmdetection" target="_blank" rel="noopener">MMDetection</a></h3>
+<span class="tag">检测 · 官方/开源实现</span>
+<p>检测算法全家桶与配置文件化实验</p>
+<span class="why"><strong>怎么用</strong>：两阶段、单阶段、anchor-free 全家桶，适合做对照实验</span>
+<p style="margin:0"><code>https://github.com/open-mmlab/mmdetection</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/facebookresearch/detectron2" target="_blank" rel="noopener">Detectron2</a></h3>
+<span class="tag">检测 · 官方/开源实现</span>
+<p>FAIR 的检测/实例分割框架</p>
+<span class="why"><strong>怎么用</strong>：FAIR 官方 Faster/Mask R-CNN 实现，读 RPN 代码的最佳入口</span>
+<p style="margin:0"><code>https://github.com/facebookresearch/detectron2</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/facebookresearch/detr" target="_blank" rel="noopener">DETR</a></h3>
+<span class="tag">检测 · 官方/开源实现</span>
+<p>用 Transformer + 集合预测做检测</p>
+<span class="why"><strong>怎么用</strong>：集合预测原始实现，理解匈牙利匹配与去 NMS</span>
+<p style="margin:0"><code>https://github.com/facebookresearch/detr</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/IDEA-Research/GroundingDINO" target="_blank" rel="noopener">GroundingDINO</a></h3>
+<span class="tag">检测 · 官方/开源实现</span>
+<p>开放词表检测，文本提示直接出框</p>
+<span class="why"><strong>怎么用</strong>：开放词表检测：用文本提示指定要检测的类别</span>
+<p style="margin:0"><code>https://github.com/IDEA-Research/GroundingDINO</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/cocodataset/cocoapi" target="_blank" rel="noopener">COCO API</a></h3>
+<span class="tag">评测 · 官方/开源实现</span>
+<p>COCO 标注读取与官方评测</p>
+<span class="why"><strong>怎么用</strong>：COCO 官方 mAP 评测，报告结果必须用它</span>
+<p style="margin:0"><code>https://github.com/cocodataset/cocoapi</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/pytorch/vision" target="_blank" rel="noopener">torchvision</a></h3>
+<span class="tag">框架 · 官方/开源实现</span>
+<p>官方分类/检测/分割模型与数据集变换</p>
+<span class="why"><strong>怎么用</strong>：官方 NMS / RoIAlign 等算子与 Faster R-CNN 基线</span>
+<p style="margin:0"><code>https://github.com/pytorch/vision</code></p>
+</div>
+</div>
+<p class="code-hint">使用约定：以下仓库均为各自维护者的项目，本书与之无从属关系；请阅读其 README 与许可证后再用于课程或生产环境。更多资源见 <a href="#extra-links">扩展学习</a> 与 <a href="../../appendix/index.html">附录 A.3 开源工程总表</a>。</p>
+</section>
+<section id="pitfalls"><h2><span class="sec-num">§</span>常见误区</h2><div class="card warn"><ul><li>用自己写的 mAP 报结果：与 COCO API 的边界处理不一致，无法横向比较。</li>
+<li>NMS 阈值一刀切：人群等密集场景会误删正确框。</li>
+<li>忽略小目标：整体 mAP 不错但关键类别几乎检不出。</li>
+<li>把开放词表模型当固定类别检测器评测：提示词变化会显著影响结果。</li></ul></div></section>
+<section id="exercises"><h2><span class="sec-num">§</span>习题与思考</h2><ol><li>推导 NMS 与第 10 章边缘非极大抑制的对应关系，说明两者“抑制轴”分别是什么。</li>
+<li>写出 Focal Loss 表达式，解释 &lt;code&gt;(1−p_t)^γ&lt;/code&gt; 如何降低易分样本权重。</li></ol></section>
+<section id="extra-links"><h2><span class="sec-num">§</span>扩展学习</h2>
+<p>以下资料按本章知识点挑选，可直接精读或对照源码；知识点地图里每一条也挂了 1～2 个直达链接。</p>
+<ul>
+<li><strong>Ultralytics YOLO</strong>（检测）：YOLOv8/11 官方工程，一行命令训练与推理<br><a href="https://github.com/ultralytics/ultralytics" target="_blank" rel="noopener">Ultralytics YOLO</a></li>
+<li><strong>MMDetection</strong>（检测）：检测算法全家桶与配置文件化实验<br><a href="https://github.com/open-mmlab/mmdetection" target="_blank" rel="noopener">MMDetection</a></li>
+<li><strong>Detectron2</strong>（检测）：FAIR 的检测/实例分割框架<br><a href="https://github.com/facebookresearch/detectron2" target="_blank" rel="noopener">Detectron2</a></li>
+<li><strong>DETR</strong>（检测）：用 Transformer + 集合预测做检测<br><a href="https://github.com/facebookresearch/detr" target="_blank" rel="noopener">DETR</a></li>
+<li><strong>COCO API</strong>（评测）：COCO 标注读取与官方评测<br><a href="https://github.com/cocodataset/cocoapi" target="_blank" rel="noopener">COCO API</a></li>
+</ul>
+<p class="code-hint">继续扩展：<a href="https://github.com/search?q=object%20detection%20YOCO%20YOLO%20open%20source&amp;type=repositories" target="_blank" rel="noopener">在 GitHub 检索本章相关开源工程</a> · <a href="https://www.google.com/search?q=object%20detection%20YOCO%20YOLO%20open%20source" target="_blank" rel="noopener">按本章主题检索资料</a> · <a href="../../index.html#resources">全书参考资源总表</a> · <a href="../../appendix/index.html">附录 A 速查与链接总表</a></p>
+</section>
+<section id="further"><h2><span class="sec-num">§</span>延伸阅读与内链</h2><ul><li><a href='../../part3/19-datasets-evaluation/index.html'>第 19 章 mAP 与 IoU</a></li>
+<li><a href='../../part2/10-edge-detection/index.html'>第 10 章 边缘检测（NMS 的原型）</a></li>
+<li><a href='../22-segmentation-networks/index.html'>第 22 章 深度图像分割</a></li></ul></section>
+<footer class="pager" data-autofill></footer>
+<footer class="site-foot">
+<p class="credits"><strong>作者</strong>：汪亮（bertonwang）　<strong>联系邮箱</strong>：<a href="mailto:47608843@qq.com">47608843@qq.com</a></p>
+<p class="ai-note"><strong>AI 使用说明</strong>：本教材的知识框架、正文、Octave 示例代码与开源工程清单在 AI 辅助下整理生成，并经人工校订与静态自检。公式、数值与运行结果请以GNU Octave 实际输出及权威教材、官方文档为准；发现错漏欢迎通过上方邮箱勘误。</p>
+<p class="imprint">数字图像处理：从经典算法到智能方法 · 上卷每章一个 <code>code/*.m</code> Octave 脚本（由 <code>tools/extract_code.py</code> 从 HTML 同步） · 下卷给出官方开源工程链接 · GNU Octave 为自由软件，本书与之无从属关系。</p>
+</footer>
+</main>
+</body>
+</html>

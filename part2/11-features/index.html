@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第 11 章 · 局部特征、匹配与 Hough 变换 | 数字图像处理：从经典算法到智能方法</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script src="../../assets/toc.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</head>
+<body data-root="../../" data-chapter="11">
+<aside id="sidebar"></aside>
+<main class="book-page">
+<nav class="breadcrumb" data-autofill>总目录</nav>
+<header class="chapter-head">
+<span class="kicker">第二篇 · 结构分析与理解</span>
+<h1><span class="ch-num">第 11 章</span>局部特征、匹配与 Hough 变换</h1>
+<p class="lede">把“这块图像”变成可比较的向量：Harris 找位置，SIFT/ORB 给描述，RANSAC 负责在错误匹配里挑出正确模型。</p>
+<div class="meta">
+<span class="badge done">已完稿</span>
+<span>建议 4 学时</span>
+<span>1 个 Octave 实例</span>
+<span class="badge upper">上卷 · 传统算法</span>
+<span>数字图像处理：从经典算法到智能方法</span>
+</div></header>
+<div class="card objectives"><span class="card-label">学习目标</span><ul>
+<li>能写出 Harris 响应并解释 k 的作用</li>
+<li>说清 SIFT 的尺度、方向、描述子三步如何获得不变性</li>
+<li>理解比值测试与 RANSAC 为什么必要</li>
+<li>能用累加器数组实现直线 Hough 变换</li>
+</ul></div>
+<section id="map"><h2><span class="sec-num">§</span>知识点地图</h2>
+<p class="code-hint">每个知识点都配了 1～2 个扩展学习链接；本章完整资源清单见 <a href="#extra-links">扩展学习</a>。</p>
+<table><thead><tr><th style="width:44px">#</th><th style="width:26%">知识点</th><th>扩展学习</th><th style="width:100px">状态</th></tr></thead><tbody>
+<tr><td>1</td><td>自相关矩阵与 Harris</td><td><a href="https://en.wikipedia.org/wiki/Corner_detection" target="_blank" rel="noopener">Corner detection</a> · <a href="https://en.wikipedia.org/wiki/Scale-invariant_feature_transform" target="_blank" rel="noopener">Scale-invariant feature transform</a></td><td>正文已覆盖</td></tr>
+<tr><td>2</td><td>尺度空间与 DoG</td><td><a href="https://en.wikipedia.org/wiki/Corner_detection" target="_blank" rel="noopener">Corner detection</a> · <a href="https://en.wikipedia.org/wiki/Scale-invariant_feature_transform" target="_blank" rel="noopener">Scale-invariant feature transform</a></td><td>正文已覆盖</td></tr>
+<tr><td>3</td><td>SIFT / SURF / ORB</td><td><a href="https://en.wikipedia.org/wiki/Scale-invariant_feature_transform" target="_blank" rel="noopener">Scale-invariant feature transform</a> · <a href="https://en.wikipedia.org/wiki/Random_sample_consensus" target="_blank" rel="noopener">Random sample consensus</a></td><td>正文已覆盖</td></tr>
+<tr><td>4</td><td>描述子匹配与比值测试</td><td><a href="https://en.wikipedia.org/wiki/Scale-invariant_feature_transform" target="_blank" rel="noopener">Scale-invariant feature transform</a> · <a href="https://en.wikipedia.org/wiki/Oriented_FAST_and_rotated_BRIEF" target="_blank" rel="noopener">ORB (feature descriptor)</a></td><td>正文已覆盖</td></tr>
+<tr><td>5</td><td>RANSAC 估计单应</td><td><a href="https://en.wikipedia.org/wiki/Random_sample_consensus" target="_blank" rel="noopener">Random sample consensus</a> · <a href="https://en.wikipedia.org/wiki/Homography" target="_blank" rel="noopener">Homography</a></td><td>正文已覆盖</td></tr>
+<tr><td>6</td><td>Hough 参数空间投票</td><td><a href="https://en.wikipedia.org/wiki/Hough_transform" target="_blank" rel="noopener">Hough transform</a> · <a href="https://docs.opencv.org/master/d6/d00/tutorial_py_root.html" target="_blank" rel="noopener">OpenCV Tutorials</a></td><td>正文已覆盖</td></tr>
+</tbody></table></section>
+<section id="s11-1"><h2><span class="sec-num">§11.1</span>角点与 Harris 响应</h2>
+<p>在局部窗口里平移 <code>[u,v]</code>，用自相关矩阵 <code>M = Σ w·[Iₓ² IₓI_y; IₓI_y I_y²]</code> 描述灰度变化。<code>M</code> 的两个特征值：都小 = 平坦区；一大一小 = 边缘；都大 = 角点。为避免算特征值，Harris 用：</p>
+<span class="eq">R = det(M) − k·trace(M)²，　det = λ₁λ₂，　trace = λ₁ + λ₂</span>
+<p><code>k</code> 常取 0.04～0.06；<code>R &gt; 0</code> 且局部极大判为角点。Shi-Tomasi 直接用 <code>min(λ₁,λ₂)</code>，在跟踪任务里更稳定。角点响应对旋转与光照线性变化不变，但<strong>对尺度不变</strong>——这是 SIFT 要解决的问题。</p>
+</section>
+<section id="s11-2"><h2><span class="sec-num">§11.2</span>SIFT 与工程取舍</h2>
+<ol><li><strong>尺度空间极值</strong>：用 DoG 金字塔在 (x,y,σ) 三维里找局部极值，得到尺度不变的关键点位置。</li>
+<li><strong>主方向</strong>：统计邻域梯度方向直方图，取峰值方向并把坐标系旋转对齐，获得旋转不变性。</li>
+<li><strong>描述子</strong>：把 16×16 邻域分成 4×4 子块，每块统计 8 个方向，得 128 维向量；再做光照归一化。</li></ol>
+<table><thead><tr><th>特征</th><th>描述子</th><th>速度</th><th>适合</th></tr></thead><tbody>
+<tr><td>SIFT</td><td>128 维浮点</td><td>慢</td><td>高精度配准、三维重建、教学基准</td></tr>
+<tr><td>SURF</td><td>64 维浮点</td><td>中</td><td>SIFT 的积分图加速版</td></tr>
+<tr><td>ORB</td><td>256 bit 二值</td><td>快</td><td>SLAM、移动端实时匹配（汉明距离）</td></tr>
+</tbody></table>
+</section>
+<section id="s11-3"><h2><span class="sec-num">§11.3</span>匹配、比值测试与 RANSAC</h2>
+<p>最近邻匹配必然产生错误对应。<strong>比值测试</strong>：只有当“最近距离 / 次近距离 &lt; 0.7～0.8”才接受，因为重复纹理会让两个候选距离接近。<strong>RANSAC</strong>：随机抽最小样本（仿射 3 对、单应 4 对）估计模型，统计内点数，重复取最优，最后用全部内点重估。它能容忍相当比例的外点，是几何估计的标准做法（第 07 章配准就靠它）。</p>
+</section>
+<section id="s11-4"><h2><span class="sec-num">§11.4</span>Hough 变换</h2>
+<p>直线用极坐标 <code>ρ = x·cosθ + y·sinθ</code> 参数化。每个边缘点对一组 <code>(θ, ρ)</code> 投票，累加器峰值就是共线点最多的参数组合。优点是<strong>对断裂、遮挡与孤立噪点鲁棒</strong>；代价是内存与时间随参数维度增长，圆检测（3 维）已明显变贵，广义 Hough 更复杂。</p>
+<p class="code-hint">现代做法常用“分割网络输出边缘图 → 概率 Hough 或 RANSAC 拟合”的组合：上卷提供几何约束，下卷提供更好的边缘图，见第 22、26 章。</p>
+</section>
+<section id="lab"><h2><span class="sec-num">§</span>Octave 实例</h2>
+<h3>手写 Harris 角点响应与非极大抑制</h3>
+<pre class="code" data-file="code/11-harris.m" data-lang="GNU Octave"><code>%% 11-harris.m | 自相关矩阵 / Harris 响应 / 角点定位
+%% GNU Octave，零第三方依赖；合成图像，无需任何外部文件
+clear; close all; clc;
+SHOW = ~strcmp(getenv("IP_HEADLESS"), "1");
+% ---- 参数区 ----
+N = 96; k = 0.05; thresh = 0.005;
+% ---- 造图：一个矩形（4 个直角）+ 一个圆盘（无角点）----
+[X, Y] = meshgrid(1:N, 1:N);
+f = 0.15 + 0.65*double(X&gt;20 &amp; X&lt;45 &amp; Y&gt;20 &amp; Y&lt;45);
+f = f + 0.5*double((X-70).^2 + (Y-65).^2 &lt; 15^2);
+f = min(max(f, 0), 1);
+% ---- 算法：梯度 -&gt; M 的三个分量 -&gt; R = det - k*trace^2 ----
+Gx = [-1 0 1]; Gy = Gx';
+dx = conv2(f, Gx, "same"); dy = conv2(f, Gy, "same");
+w = ones(5,5)/25;
+A = conv2(dx.^2, w, "same");
+B = conv2(dy.^2, w, "same");
+C = conv2(dx.*dy, w, "same");
+R = A.*B - C.^2 - k*(A + B).^2;
+% ---- 非极大抑制（3x3）----
+% 手写 3x3 非极大抑制，不依赖 image 包
+% 手写等价实现（始终有效，覆盖上一行结果）
+p = 1; rp = zeros(N+2, N+2); rp(2:N+1, 2:N+1) = R;
+peak = zeros(N, N);
+for r = 1:N
+  for c = 1:N
+    blk = rp(r:r+2, c:c+2);
+    peak(r,c) = double(R(r,c) == max(blk(:)) &amp;&amp; R(r,c) &gt; thresh);
+  end
+end
+[rr, cc] = find(peak);
+% ---- 数值验证 ----
+printf("Harris 响应: min=%.6f max=%.6f\n", min(R(:)), max(R(:)));
+printf("平坦区响应 (5,5) = %.6f, 边缘响应 (30,20) = %.6f\n", R(5,5), R(30,20));
+printf("检测到的角点数 = %d（矩形约 4 个）\n", numel(rr));
+printf("前几个角点坐标 (行,列): ");
+for t = 1:min(6, numel(rr)), printf("(%d,%d) ", rr(t), cc(t)); end
+printf("\n");
+% ---- 可视化 ----
+if SHOW
+  figure("name", "11 Harris 角点"); imagesc(f, [0 1]); colormap gray; axis image off;
+  hold on; plot(cc, rr, "r+", "markersize", 12); hold off; title("角点响应峰值");
+end</code></pre>
+<p class="code-hint"><strong>操作：</strong>运行后把 &lt;code&gt;k&lt;/code&gt; 改成 0.15、&lt;code&gt;thresh&lt;/code&gt; 改成 0.001，观察角点数变化。　<strong>预期与判读：</strong>响应在平坦区接近 0、边缘处为负或较小、角点处显著为正；矩形附近出现约 4 个峰值，圆盘没有明显角点；k 越大越倾向于只保留强角点。　文件位置：<code>part2/11-features/code/11-harris.m</code></p>
+<div class="card note"><p style="margin-bottom:0">代码块右上角可一键复制；本仓库 <code>code/*.m</code> 由 <code>tools/extract_code.py</code> 从这些代码块自动抽取，页面与脚本永远一致。脚本只用 Octave 核心函数，设 <code>IP_HEADLESS=1</code> 可跳过绘图。</p></div>
+</section>
+<section id="pitfalls"><h2><span class="sec-num">§</span>常见误区</h2><div class="card warn"><ul><li>Harris 直接使用 &lt;code&gt;dx.^2&lt;/code&gt; 不做窗口聚合：响应充满噪声，找不到稳定峰值。</li>
+<li>以为 Harris 对尺度不变：图像放大后角点可能消失，需要 SIFT 的尺度空间。</li>
+<li>匹配时只用最近邻不做比值测试：重复纹理区域产生大量错误对应。</li>
+<li>Hough 的 ρ 出现负值直接丢弃：应允许负 ρ 或把 θ 范围取满 [0,π)。</li></ul></div></section>
+<section id="exercises"><h2><span class="sec-num">§</span>习题与思考</h2><ol><li>把 11-harris.m 的窗口从 5×5 改成 9×9，解释为什么角点定位变粗但更抗噪。</li>
+<li>推导 &lt;code&gt;R = det(M) − k·trace(M)²&lt;/code&gt; 在&lt;code&gt;λ₁=λ₂≫0&lt;/code&gt;、&lt;code&gt;λ₁≫λ₂≈0&lt;/code&gt;、两者都小三种情形下的符号。</li></ol></section>
+<section id="extra-links"><h2><span class="sec-num">§</span>扩展学习</h2>
+<p>以下资料按本章知识点挑选，可直接精读或对照源码；知识点地图里每一条也挂了 1～2 个直达链接。</p>
+<ul>
+<li><strong>Corner detection</strong>（百科）：自相关矩阵与角点响应<br><a href="https://en.wikipedia.org/wiki/Corner_detection" target="_blank" rel="noopener">Corner detection</a></li>
+<li><strong>Scale-invariant feature transform</strong>（百科）：尺度空间、关键点与描述子<br><a href="https://en.wikipedia.org/wiki/Scale-invariant_feature_transform" target="_blank" rel="noopener">Scale-invariant feature transform</a></li>
+<li><strong>ORB (feature descriptor)</strong>（百科）：实时二值特征与工程取舍<br><a href="https://en.wikipedia.org/wiki/Oriented_FAST_and_rotated_BRIEF" target="_blank" rel="noopener">ORB (feature descriptor)</a></li>
+<li><strong>Hough transform</strong>（百科）：参数空间投票检测直线与圆<br><a href="https://en.wikipedia.org/wiki/Hough_transform" target="_blank" rel="noopener">Hough transform</a></li>
+<li><strong>Random sample consensus</strong>（百科）：含外点时的鲁棒模型拟合<br><a href="https://en.wikipedia.org/wiki/Random_sample_consensus" target="_blank" rel="noopener">Random sample consensus</a></li>
+</ul>
+<p class="code-hint">继续扩展：<a href="https://github.com/search?q=SIFT%20ORB%20feature%20matching%20Octave&amp;type=repositories" target="_blank" rel="noopener">在 GitHub 检索本章相关开源工程</a> · <a href="https://www.google.com/search?q=SIFT%20ORB%20feature%20matching%20Octave" target="_blank" rel="noopener">按本章主题检索资料</a> · <a href="../../index.html#resources">全书参考资源总表</a> · <a href="../../appendix/index.html">附录 A 速查与链接总表</a></p>
+</section>
+<section id="further"><h2><span class="sec-num">§</span>延伸阅读与内链</h2><ul><li><a href='../../part1/07-geometry-registration/index.html'>第 7 章 几何变换与配准</a></li>
+<li><a href='../../part3/16-learning-baselines/index.html'>第 16 章 从手工特征到学习</a></li>
+<li><a href='../../part4/21-object-detection/index.html'>第 21 章 目标检测（NMS 的另一种用法）</a></li></ul></section>
+<footer class="pager" data-autofill></footer>
+<footer class="site-foot">
+<p class="credits"><strong>作者</strong>：汪亮（bertonwang）　<strong>联系邮箱</strong>：<a href="mailto:47608843@qq.com">47608843@qq.com</a></p>
+<p class="ai-note"><strong>AI 使用说明</strong>：本教材的知识框架、正文、Octave 示例代码与开源工程清单在 AI 辅助下整理生成，并经人工校订与静态自检。公式、数值与运行结果请以GNU Octave 实际输出及权威教材、官方文档为准；发现错漏欢迎通过上方邮箱勘误。</p>
+<p class="imprint">数字图像处理：从经典算法到智能方法 · 上卷每章一个 <code>code/*.m</code> Octave 脚本（由 <code>tools/extract_code.py</code> 从 HTML 同步） · 下卷给出官方开源工程链接 · GNU Octave 为自由软件，本书与之无从属关系。</p>
+</footer>
+</main>
+</body>
+</html>

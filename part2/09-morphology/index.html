@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第 09 章 · 数学形态学 | 数字图像处理：从经典算法到智能方法</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script src="../../assets/toc.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</head>
+<body data-root="../../" data-chapter="09">
+<aside id="sidebar"></aside>
+<main class="book-page">
+<nav class="breadcrumb" data-autofill>总目录</nav>
+<header class="chapter-head">
+<span class="kicker">第二篇 · 结构分析与理解</span>
+<h1><span class="ch-num">第 09 章</span>数学形态学</h1>
+<p class="lede">用集合的视角处理形状：腐蚀、膨胀、开、闭四个动作，就能完成去噪、填洞、分离粘连目标。</p>
+<div class="meta">
+<span class="badge done">已完稿</span>
+<span>建议 3 学时</span>
+<span>2 个 Octave 实例</span>
+<span class="badge upper">上卷 · 传统算法</span>
+<span>数字图像处理：从经典算法到智能方法</span>
+</div></header>
+<div class="card objectives"><span class="card-label">学习目标</span><ul>
+<li>能用集合语言定义腐蚀与膨胀并说明对偶性</li>
+<li>能预测开/闭运算分别删除哪类结构</li>
+<li>会手写一个简单的连通域标记</li>
+<li>理解距离变换 + 分水岭分离粘连目标的流程</li>
+</ul></div>
+<section id="map"><h2><span class="sec-num">§</span>知识点地图</h2>
+<p class="code-hint">每个知识点都配了 1～2 个扩展学习链接；本章完整资源清单见 <a href="#extra-links">扩展学习</a>。</p>
+<table><thead><tr><th style="width:44px">#</th><th style="width:26%">知识点</th><th>扩展学习</th><th style="width:100px">状态</th></tr></thead><tbody>
+<tr><td>1</td><td>结构元素</td><td><a href="https://en.wikipedia.org/wiki/Mathematical_morphology" target="_blank" rel="noopener">Mathematical morphology</a> · <a href="https://en.wikipedia.org/wiki/Watershed_(image_processing)" target="_blank" rel="noopener">Watershed (image processing)</a></td><td>正文已覆盖</td></tr>
+<tr><td>2</td><td>腐蚀与膨胀</td><td><a href="https://en.wikipedia.org/wiki/Mathematical_morphology" target="_blank" rel="noopener">Mathematical morphology</a> · <a href="https://scikit-image.org/docs/stable/user_guide/" target="_blank" rel="noopener">scikit-image User Guide</a></td><td>正文已覆盖</td></tr>
+<tr><td>3</td><td>对偶性</td><td><a href="https://en.wikipedia.org/wiki/Mathematical_morphology" target="_blank" rel="noopener">Mathematical morphology</a> · <a href="https://en.wikipedia.org/wiki/Watershed_(image_processing)" target="_blank" rel="noopener">Watershed (image processing)</a></td><td>正文已覆盖</td></tr>
+<tr><td>4</td><td>开运算与闭运算</td><td><a href="https://en.wikipedia.org/wiki/Mathematical_morphology" target="_blank" rel="noopener">Mathematical morphology</a> · <a href="https://en.wikipedia.org/wiki/Watershed_(image_processing)" target="_blank" rel="noopener">Watershed (image processing)</a></td><td>正文已覆盖</td></tr>
+<tr><td>5</td><td>连通域标记</td><td><a href="https://en.wikipedia.org/wiki/Distance_transform" target="_blank" rel="noopener">Distance transform</a> · <a href="https://en.wikipedia.org/wiki/Mathematical_morphology" target="_blank" rel="noopener">Mathematical morphology</a></td><td>正文已覆盖</td></tr>
+<tr><td>6</td><td>距离变换与分水岭</td><td><a href="https://en.wikipedia.org/wiki/Distance_transform" target="_blank" rel="noopener">Distance transform</a> · <a href="https://en.wikipedia.org/wiki/Watershed_(image_processing)" target="_blank" rel="noopener">Watershed (image processing)</a></td><td>正文已覆盖</td></tr>
+</tbody></table></section>
+<section id="s9-1"><h2><span class="sec-num">§9.1</span>腐蚀、膨胀与对偶性</h2>
+<p>把二值图看成前景像素的集合 <code>A</code>，结构元素 <code>B</code> 是一个小形状（常用 3×3 方形、圆盘、十字）。</p>
+<span class="eq">腐蚀 A ⊖ B = { z | (B)_z ⊆ A }　　膨胀 A ⊕ B = { z | (B̂)_z ∩ A ≠ ∅ }</span>
+<ul><li><strong>腐蚀</strong>：只有 B 完全落在前景内才保留中心 → 前景收缩，去掉小亮点与细连接。</li>
+<li><strong>膨胀</strong>：B 与前景有交集就保留 → 前景扩张，填补小孔与断裂。</li>
+<li><strong>对偶性</strong>：<code>(A ⊖ B)ᶜ = Aᶜ ⊕ B̂</code>，对背景膨胀等价于对前景腐蚀，实现时可互相复用。</li></ul>
+<p>灰度形态学把 min/max 代入即可：腐蚀取邻域最小值、膨胀取邻域最大值，这正是第 04 章排序统计滤波的特例。</p>
+</section>
+<section id="s9-2"><h2><span class="sec-num">§9.2</span>开、闭与形态学滤波</h2>
+<table><thead><tr><th>复合运算</th><th>定义</th><th>删掉什么</th><th>保留什么</th></tr></thead><tbody>
+<tr><td>开运算</td><td><code>(A ⊖ B) ⊕ B</code></td><td>比 B 小的亮细节、细毛刺、孤立点</td><td>主体形状与尺寸基本不变</td></tr>
+<tr><td>闭运算</td><td><code>(A ⊕ B) ⊖ B</code></td><td>比 B 小的暗孔、细裂缝</td><td>主体形状与尺寸基本不变</td></tr>
+<tr><td>形态学梯度</td><td><code>膨胀 − 腐蚀</code></td><td>—</td><td>目标边界</td></tr>
+<tr><td>顶帽变换</td><td><code>A − 开(A)</code></td><td>—</td><td>比 B 小的亮细节，用于光照校正</td></tr>
+</tbody></table>
+<p>开闭都是<strong>幂等</strong>的（做一次和做两次结果相同），这点与卷积滤波完全不同；结构元素的尺寸直接决定“多大的结构算细节”，是唯一需要调的参数。</p>
+</section>
+<section id="s9-3"><h2><span class="sec-num">§9.3</span>连通域、距离变换与分水岭</h2>
+<p><strong>连通域标记</strong>把二值图分成若干独立目标，是计数、面积筛选、包围盒的前提。4 连通与 8 连通要事先约定，斜角接触的两个块在 4 连通下是两个目标、在 8 连通下是一个。</p>
+<p><strong>距离变换</strong>给每个前景像素标出到最近背景的距离；距离图的局部极大值天然是目标的“中心种子”。<strong>分水岭</strong>把灰度图看作地形、从种子开始淹没，相遇处形成分水岭线，因此特别适合分离<strong>粘连的圆形目标</strong>（细胞、颗粒）。直接对原图做分水岭几乎必然过分割，标准流程是：平滑 → 距离变换 → 取局部极大作标记 → 带标记的分水岭。</p>
+</section>
+<section id="lab"><h2><span class="sec-num">§</span>Octave 实例</h2>
+<h3>手写腐蚀/膨胀/开/闭与面积统计</h3>
+<pre class="code" data-file="code/09-morphology.m" data-lang="GNU Octave"><code>%% 09-morphology.m | 二值形态学四则运算（3x3 结构元素）
+%% GNU Octave，零第三方依赖；合成图像，无需任何外部文件
+clear; close all; clc;
+SHOW = ~strcmp(getenv("IP_HEADLESS"), "1");
+% ---- 参数区 ----
+N = 96; win = 3;
+% ---- 造图：两个方块 + 孤立亮点 + 内部小孔 + 细毛刺 ----
+[X, Y] = meshgrid(1:N, 1:N);
+bw = double((X&gt;15 &amp; X&lt;45 &amp; Y&gt;15 &amp; Y&lt;45) | (X&gt;55 &amp; X&lt;85 &amp; Y&gt;50 &amp; Y&lt;80));
+bw(70, 20) = 1;                       % 孤立亮点
+bw(28:31, 28:31) = 0;                % 内部小孔
+bw(45:52, 30) = 1;                   % 细毛刺
+% ---- 工具：带零填充的局部窗口 ----
+p = (win-1)/2;
+a = zeros(N + 2*p, N + 2*p);
+a(p+1:p+N, p+1:p+N) = bw;
+% ---- 算法：腐蚀 = 窗口全 1；膨胀 = 窗口含 1 ----
+ero = zeros(N, N); dil = zeros(N, N);
+for r = 1:N
+  for c = 1:N
+    blk = a(r:r+win-1, c:c+win-1);
+    ero(r,c) = double(all(blk(:) == 1));
+    dil(r,c) = double(any(blk(:) == 1));
+  end
+end
+% ---- 开 = 先腐蚀后膨胀；闭 = 先膨胀后腐蚀（同样用 win 邻域）----
+ae = zeros(N + 2*p, N + 2*p); ae(p+1:p+N, p+1:p+N) = ero;
+opened = zeros(N, N);
+for r = 1:N
+  for c = 1:N
+    blk = ae(r:r+win-1, c:c+win-1);
+    opened(r,c) = double(any(blk(:) == 1));
+  end
+end
+ad = zeros(N + 2*p, N + 2*p); ad(p+1:p+N, p+1:p+N) = dil;
+closed = zeros(N, N);
+for r = 1:N
+  for c = 1:N
+    blk = ad(r:r+win-1, c:c+win-1);
+    closed(r,c) = double(all(blk(:) == 1));
+  end
+end
+% ---- 数值验证 ----
+printf("原图前景 = %d, 腐蚀 = %d, 膨胀 = %d\n", sum(bw(:)), sum(ero(:)), sum(dil(:)));
+printf("开运算 = %d（孤立点与毛刺被删：%d 个像素）\n", sum(opened(:)), sum(bw(:))-sum(opened(:)));
+printf("闭运算 = %d（内部小孔被填：%d 个像素）\n", sum(closed(:)), sum(closed(:))-sum(bw(:)));
+printf("孤立亮点 (70,20): 原 %d -&gt; 开运算后 %d\n", bw(70,20), opened(70,20));
+printf("小孔中心 (29,29): 原 %d -&gt; 闭运算后 %d\n", bw(29,29), closed(29,29));
+% ---- 可视化 ----
+if SHOW
+  figure("name", "09 形态学");
+  subplot(2, 2, 1); imagesc(bw, [0 1]); colormap gray; axis image off; title("原二值图");
+  subplot(2, 2, 2); imagesc(ero, [0 1]); axis image off; title("腐蚀");
+  subplot(2, 2, 3); imagesc(opened, [0 1]); axis image off; title("开运算");
+  subplot(2, 2, 4); imagesc(closed, [0 1]); axis image off; title("闭运算");
+end</code></pre>
+<p class="code-hint"><strong>操作：</strong>运行后把 &lt;code&gt;win&lt;/code&gt; 改成 5（需同步改 &lt;code&gt;morph_&lt;/code&gt; 的窗口）或把毛刺加粗，观察开运算是否还能删除。　<strong>预期与判读：</strong>腐蚀面积减少、膨胀面积增加；开运算去掉孤立亮点与细毛刺（前景减少），闭运算填上内部小孔（前景增加）；结构元素越大，被当作细节删掉的结构越大。　文件位置：<code>part2/09-morphology/code/09-morphology.m</code></p>
+<h3>手写 4 连通域标记与面积筛选</h3>
+<pre class="code" data-file="code/09-label-regions.m" data-lang="GNU Octave"><code>%% 09-label-regions.m | 4 连通 flood fill 标记 + 面积筛选
+%% GNU Octave，零第三方依赖；合成图像，无需任何外部文件
+clear; close all; clc;
+SHOW = ~strcmp(getenv("IP_HEADLESS"), "1");
+% ---- 参数区 ----
+N = 96; min_area = 100;
+% ---- 造图：3 个矩形目标 + 2 个噪点 ----
+[X, Y] = meshgrid(1:N, 1:N);
+bw = double((X&gt;8 &amp; X&lt;30 &amp; Y&gt;8 &amp; Y&lt;32) | (X&gt;40 &amp; X&lt;66 &amp; Y&gt;40 &amp; Y&lt;70) ...
+          | (X&gt;72 &amp; X&lt;90 &amp; Y&gt;10 &amp; Y&lt;28));
+bw(85, 85) = 1; bw(5, 90) = 1;
+% ---- 算法：逐像素扫描，遇未标记前景就做一次 flood fill ----
+labels = zeros(N, N); count = 0; areas = [];
+for r = 1:N
+  for c = 1:N
+    if bw(r,c) == 1 &amp;&amp; labels(r,c) == 0
+      count = count + 1;
+      stack = [r, c]; labels(r,c) = count; area = 0;
+      while ~isempty(stack)
+        cur = stack(end, :); stack(end, :) = [];
+        rr = cur(1); cc = cur(2); area = area + 1;
+        nb = [rr-1 cc; rr+1 cc; rr cc-1; rr cc+1];
+        for t = 1:4
+          nr = nb(t,1); nc = nb(t,2);
+          if nr &gt;= 1 &amp;&amp; nr &lt;= N &amp;&amp; nc &gt;= 1 &amp;&amp; nc &lt;= N
+            if bw(nr,nc) == 1 &amp;&amp; labels(nr,nc) == 0
+              labels(nr,nc) = count;
+              stack = [stack; nr, nc];
+            end
+          end
+        end
+      end
+      areas(count) = area;
+    end
+  end
+end
+big = zeros(N, N);
+for k = 1:count
+  if areas(k) &gt;= min_area, big(labels == k) = 1; end
+end
+% ---- 数值验证 ----
+printf("连通域总数 = %d（3 个目标 + 2 个噪点）\n", count);
+printf("各连通域面积: "); printf("%d ", areas); printf("\n");
+printf("面积 &gt;= %d 的域数 = %d, 筛后前景 = %d\n", min_area, sum(areas &gt;= min_area), sum(big(:)));
+printf("噪点 (85,85) 的标签 = %d, 筛后灰度 = %d\n", labels(85,85), big(85,85));
+printf("最大目标面积 = %d（理论 26x30=780 附近）\n", max(areas));
+% ---- 可视化 ----
+if SHOW
+  figure("name", "09 连通域");
+  subplot(1, 2, 1); imagesc(labels); axis image off; title("标记图（颜色=域编号）");
+  subplot(1, 2, 2); imagesc(big, [0 1]); colormap gray; axis image off; title("面积筛选后");
+end</code></pre>
+<p class="code-hint"><strong>操作：</strong>运行后把 &lt;code&gt;min_area&lt;/code&gt; 改成 10 / 1000，观察保留的域数；把连通定义改成 8 连通看斜角接触的差别。　<strong>预期与判读：</strong>共 5 个连通域（3 大 2 小）；两个噪点面积为 1，被 &lt;code&gt;min_area=100&lt;/code&gt; 过滤；最大目标面积与矩形理论面积一致（边界为开区间所以略小）。　文件位置：<code>part2/09-morphology/code/09-label-regions.m</code></p>
+<div class="card note"><p style="margin-bottom:0">代码块右上角可一键复制；本仓库 <code>code/*.m</code> 由 <code>tools/extract_code.py</code> 从这些代码块自动抽取，页面与脚本永远一致。脚本只用 Octave 核心函数，设 <code>IP_HEADLESS=1</code> 可跳过绘图。</p></div>
+</section>
+<section id="pitfalls"><h2><span class="sec-num">§</span>常见误区</h2><div class="card warn"><ul><li>对灰度图直接做二值形态学：必须先把阈值/分割结果整理成逻辑掩模。</li>
+<li>不约定 4/8 连通：斜角接触的目标计数会不一致。</li>
+<li>结构元素取偶数尺寸：没有唯一锚点，输出整体偏移半像素。</li>
+<li>直接对原图做分水岭：纹理与噪声会制造大量局部极小，必然过分割。</li></ul></div></section>
+<section id="exercises"><h2><span class="sec-num">§</span>习题与思考</h2><ol><li>证明开运算的幂等性 &lt;code&gt;open(open(A))=open(A)&lt;/code&gt;，并说明为什么卷积滤波没有这个性质。</li>
+<li>把 09-label-regions.m 的 4 连通改成 8 连通（邻域加 4 个对角点），预测并验证两个斜角接触方块的合并。</li></ol></section>
+<section id="extra-links"><h2><span class="sec-num">§</span>扩展学习</h2>
+<p>以下资料按本章知识点挑选，可直接精读或对照源码；知识点地图里每一条也挂了 1～2 个直达链接。</p>
+<ul>
+<li><strong>Mathematical morphology</strong>（百科）：集合论视角下的腐蚀与膨胀<br><a href="https://en.wikipedia.org/wiki/Mathematical_morphology" target="_blank" rel="noopener">Mathematical morphology</a></li>
+<li><strong>Watershed (image processing)</strong>（百科）：地形淹没类比与过分割<br><a href="https://en.wikipedia.org/wiki/Watershed_(image_processing)" target="_blank" rel="noopener">Watershed (image processing)</a></li>
+<li><strong>Distance transform</strong>（百科）：二值图距离图与分水岭种子<br><a href="https://en.wikipedia.org/wiki/Distance_transform" target="_blank" rel="noopener">Distance transform</a></li>
+<li><strong>scikit-image User Guide</strong>（文档）：按任务组织的传统算法讲解，适合与本书章节互相对照<br><a href="https://scikit-image.org/docs/stable/user_guide/" target="_blank" rel="noopener">scikit-image User Guide</a></li>
+</ul>
+<p class="code-hint">继续扩展：<a href="https://github.com/search?q=mathematical%20morphology%20Octave&amp;type=repositories" target="_blank" rel="noopener">在 GitHub 检索本章相关开源工程</a> · <a href="https://www.google.com/search?q=mathematical%20morphology%20Octave" target="_blank" rel="noopener">按本章主题检索资料</a> · <a href="../../index.html#resources">全书参考资源总表</a> · <a href="../../appendix/index.html">附录 A 速查与链接总表</a></p>
+</section>
+<section id="further"><h2><span class="sec-num">§</span>延伸阅读与内链</h2><ul><li><a href='../12-segmentation/index.html'>第 12 章 图像分割（分水岭的完整流程）</a></li>
+<li><a href='../../part1/04-spatial-filter/index.html'>第 4 章 空间域滤波（排序统计视角）</a></li>
+<li><a href='../13-descriptors/index.html'>第 13 章 表示、描述与纹理</a></li></ul></section>
+<footer class="pager" data-autofill></footer>
+<footer class="site-foot">
+<p class="credits"><strong>作者</strong>：汪亮（bertonwang）　<strong>联系邮箱</strong>：<a href="mailto:47608843@qq.com">47608843@qq.com</a></p>
+<p class="ai-note"><strong>AI 使用说明</strong>：本教材的知识框架、正文、Octave 示例代码与开源工程清单在 AI 辅助下整理生成，并经人工校订与静态自检。公式、数值与运行结果请以GNU Octave 实际输出及权威教材、官方文档为准；发现错漏欢迎通过上方邮箱勘误。</p>
+<p class="imprint">数字图像处理：从经典算法到智能方法 · 上卷每章一个 <code>code/*.m</code> Octave 脚本（由 <code>tools/extract_code.py</code> 从 HTML 同步） · 下卷给出官方开源工程链接 · GNU Octave 为自由软件，本书与之无从属关系。</p>
+</footer>
+</main>
+</body>
+</html>

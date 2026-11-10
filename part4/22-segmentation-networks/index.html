@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第 22 章 · 深度图像分割 | 数字图像处理：从经典算法到智能方法</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script src="../../assets/toc.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</head>
+<body data-root="../../" data-chapter="22">
+<aside id="sidebar"></aside>
+<main class="book-page">
+<nav class="breadcrumb" data-autofill>总目录</nav>
+<header class="chapter-head">
+<span class="kicker">第四篇 · 视觉任务与工程落地</span>
+<h1><span class="ch-num">第 22 章</span>深度图像分割</h1>
+<p class="lede">从逐像素分类到掩码分类，再到“给个提示就出掩码”：分割的演进本质是输出表示方式的演进。</p>
+<div class="meta">
+<span class="badge done">已完稿</span>
+<span>建议 4 学时</span>
+<span>8 个开源工程</span>
+<span class="badge lower">下卷 · AI 算法</span>
+<span>数字图像处理：从经典算法到智能方法</span>
+</div></header>
+<div class="card objectives"><span class="card-label">学习目标</span><ul>
+<li>能区分语义、实例、全景三类分割的输出</li>
+<li>能说明 FCN、U-Net、DeepLab 各自解决什么问题</li>
+<li>理解掩码分类与逐像素分类的差别</li>
+<li>能描述 SAM 的可提示分割范式及其局限</li>
+</ul></div>
+<section id="map"><h2><span class="sec-num">§</span>知识点地图</h2>
+<p class="code-hint">每个知识点都配了 1～2 个扩展学习链接；本章完整资源清单见 <a href="#extra-links">扩展学习</a>。</p>
+<table><thead><tr><th style="width:44px">#</th><th style="width:26%">知识点</th><th>扩展学习</th><th style="width:100px">状态</th></tr></thead><tbody>
+<tr><td>1</td><td>语义/实例/全景分割</td><td><a href="https://github.com/facebookresearch/Mask2Former" target="_blank" rel="noopener">Mask2Former</a> · <a href="https://en.wikipedia.org/wiki/Image_segmentation" target="_blank" rel="noopener">Image segmentation</a></td><td>正文已覆盖</td></tr>
+<tr><td>2</td><td>FCN 与全卷积</td><td><a href="https://en.wikipedia.org/wiki/Convolution" target="_blank" rel="noopener">Convolution</a> · <a href="https://en.wikipedia.org/wiki/Kernel_(image_processing)" target="_blank" rel="noopener">Kernel (image processing)</a></td><td>正文已覆盖</td></tr>
+<tr><td>3</td><td>U-Net 与跳跃连接</td><td><a href="https://github.com/milesial/Pytorch-UNet" target="_blank" rel="noopener">Pytorch-UNet</a> · <a href="https://github.com/Project-MONAI/MONAI" target="_blank" rel="noopener">MONAI</a></td><td>正文已覆盖</td></tr>
+<tr><td>4</td><td>空洞卷积与 ASPP</td><td><a href="https://en.wikipedia.org/wiki/Convolution" target="_blank" rel="noopener">Convolution</a> · <a href="https://en.wikipedia.org/wiki/Kernel_(image_processing)" target="_blank" rel="noopener">Kernel (image processing)</a></td><td>正文已覆盖</td></tr>
+<tr><td>5</td><td>Mask R-CNN</td><td><a href="https://github.com/facebookresearch/detectron2" target="_blank" rel="noopener">Detectron2</a> · <a href="https://github.com/open-mmlab/mmdetection" target="_blank" rel="noopener">MMDetection</a></td><td>正文已覆盖</td></tr>
+<tr><td>6</td><td>Mask2Former 掩码分类</td><td><a href="https://github.com/open-mmlab/mmsegmentation" target="_blank" rel="noopener">MMSegmentation</a> · <a href="https://github.com/milesial/Pytorch-UNet" target="_blank" rel="noopener">Pytorch-UNet</a></td><td>正文已覆盖</td></tr>
+<tr><td>7</td><td>SAM 与可提示分割</td><td><a href="https://github.com/facebookresearch/segment-anything" target="_blank" rel="noopener">Segment Anything (SAM)</a> · <a href="https://github.com/facebookresearch/sam2" target="_blank" rel="noopener">SAM 2</a></td><td>正文已覆盖</td></tr>
+</tbody></table></section>
+<section id="s22-1"><h2><span class="sec-num">§22.1</span>三类分割任务</h2>
+<table><thead><tr><th>任务</th><th>输出</th><th>关键难点</th></tr></thead><tbody>
+<tr><td>语义分割</td><td>每个像素一个类别标签</td><td>不区分同类个体；细节边界与小目标</td></tr>
+<tr><td>实例分割</td><td>每个目标一个类别 + 一个掩码</td><td>同类粘连目标分离、遮挡</td></tr>
+<tr><td>全景分割</td><td>前景按实例、背景按语义</td><td>统一两类输出并保持一致评测</td></tr>
+</tbody></table>
+<p>注意输出始终是<strong>整数标签图</strong>，因此缩放/几何增强只能用最近邻插值（第 07、17 章），用双线性会凭空造出不存在的类别编号。</p>
+</section>
+<section id="s22-2"><h2><span class="sec-num">§22.2</span>FCN、U-Net 与 DeepLab</h2>
+<ul><li><strong>FCN</strong>：把分类网络末端的全连接换成卷积，得到热力图，再用反卷积/上采样恢复到原分辨率；<strong>跳跃连接</strong>融合浅层细节以修边界。</li>
+<li><strong>U-Net</strong>：对称编码器-解码器 + 逐级跳跃拼接，在小样本医学影像上极为有效，是至今最常用的分割基线。</li>
+<li><strong>DeepLab 系列</strong>：<strong>空洞卷积</strong>在不降分辨率的前提下扩大感受野，<strong>ASPP</strong> 并行多个空洞率捕获多尺度上下文，末端常用 CRF 或细化模块修边。</li></ul>
+<p>损失函数通常是<strong>交叉熵 + Dice / Lovász</strong> 的组合：交叉熵稳定，Dice 直接优化重叠度、对前景占比小更友好（第 19 章）。</p>
+</section>
+<section id="s22-3"><h2><span class="sec-num">§22.3</span>从逐像素到掩码分类</h2>
+<p><strong>Mask R-CNN</strong> 在 Faster R-CNN 上加一个掩码分支，先检测实例再对每个框预测二值掩码，属于“先实例后像素”。<strong>Mask2Former</strong> 则把三类分割统一成<strong>掩码分类</strong>：用一组可学习 query 直接预测若干掩码及其类别，Transformer 解码器负责推理全局关系，不再逐像素独立判决。</p>
+<p><strong>SAM / SAM 2</strong> 换了一个问题：不做固定类别，而是接受<strong>点、框、文本等提示</strong>，输出“提示所指的那个对象”的掩码。它把分割从封闭类别集推广为通用能力，非常适合作为<strong>标注加速器</strong>或流水线的前置模块；但它不自带语义标签，也不能保证在专业域（病理、遥感）上零样本可靠。</p>
+<pre class="code" data-file="inline" data-lang="Shell"><code>pip install torch torchvision opencv-python
+git clone https://github.com/facebookresearch/segment-anything.git
+# 按仓库 README 下载 checkpoint 后运行官方 demo</code></pre>
+</section>
+<section id="repos"><h2><span class="sec-num">§</span>开源工程与实现链接</h2>
+<p>本章原理对应的官方 / 开源实现。建议先跑通最小复现命令，再按「推荐用法」改动一个变量做对照实验。</p>
+<div class="card tip"><p style="margin-bottom:0">课程实验建议：同一数据集上对比 U-Net 与 DeepLab，除 mIoU 外额外报告边界附近的准确率。</p></div>
+<div class="repo-grid">
+<div class="repo-card">
+<h3><a href="https://github.com/open-mmlab/mmsegmentation" target="_blank" rel="noopener">MMSegmentation</a></h3>
+<span class="tag">分割 · 官方/开源实现</span>
+<p>语义分割算法全家桶</p>
+<span class="why"><strong>怎么用</strong>：语义分割算法全家桶，配置文件化复现 FCN / DeepLab / Mask2Former</span>
+<p style="margin:0"><code>https://github.com/open-mmlab/mmsegmentation</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/milesial/Pytorch-UNet" target="_blank" rel="noopener">Pytorch-UNet</a></h3>
+<span class="tag">分割 · 官方/开源实现</span>
+<p>U-Net 的简洁可读实现</p>
+<span class="why"><strong>怎么用</strong>：U-Net 的简洁可读实现，适合逐行对照跳跃连接</span>
+<p style="margin:0"><code>https://github.com/milesial/Pytorch-UNet</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/shelhamer/fcn.berkeleyvision.org" target="_blank" rel="noopener">FCN (Berkeley)</a></h3>
+<span class="tag">分割 · 官方/开源实现</span>
+<p>全卷积网络原始实现</p>
+<span class="why"><strong>怎么用</strong>：全卷积网络原始实现，理解从分类到稠密预测的改造</span>
+<p style="margin:0"><code>https://github.com/shelhamer/fcn.berkeleyvision.org</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/facebookresearch/Mask2Former" target="_blank" rel="noopener">Mask2Former</a></h3>
+<span class="tag">分割 · 官方/开源实现</span>
+<p>统一三类分割的掩码分类架构</p>
+<span class="why"><strong>怎么用</strong>：统一语义/实例/全景分割的官方实现</span>
+<p style="margin:0"><code>https://github.com/facebookresearch/Mask2Former</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/facebookresearch/segment-anything" target="_blank" rel="noopener">Segment Anything (SAM)</a></h3>
+<span class="tag">分割 · 官方/开源实现</span>
+<p>可提示分割基础模型</p>
+<span class="why"><strong>怎么用</strong>：可提示分割基础模型，含官方 notebook 与权重</span>
+<p style="margin:0"><code>https://github.com/facebookresearch/segment-anything</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/facebookresearch/sam2" target="_blank" rel="noopener">SAM 2</a></h3>
+<span class="tag">分割 · 官方/开源实现</span>
+<p>图像与视频统一的可提示分割</p>
+<span class="why"><strong>怎么用</strong>：图像与视频统一的可提示分割，适合做标注加速</span>
+<p style="margin:0"><code>https://github.com/facebookresearch/sam2</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/Project-MONAI/MONAI" target="_blank" rel="noopener">MONAI</a></h3>
+<span class="tag">分割 · 官方/开源实现</span>
+<p>医学影像分割与复原的官方框架</p>
+<span class="why"><strong>怎么用</strong>：医学影像分割框架，含 U-Net 与 Dice 评测的标准流程</span>
+<p style="margin:0"><code>https://github.com/Project-MONAI/MONAI</code></p>
+</div>
+<div class="repo-card">
+<h3><a href="https://github.com/facebookresearch/detectron2" target="_blank" rel="noopener">Detectron2</a></h3>
+<span class="tag">检测 · 官方/开源实现</span>
+<p>FAIR 的检测/实例分割框架</p>
+<span class="why"><strong>怎么用</strong>：Mask R-CNN / 全景分割的官方实现</span>
+<p style="margin:0"><code>https://github.com/facebookresearch/detectron2</code></p>
+</div>
+</div>
+<p class="code-hint">使用约定：以下仓库均为各自维护者的项目，本书与之无从属关系；请阅读其 README 与许可证后再用于课程或生产环境。更多资源见 <a href="#extra-links">扩展学习</a> 与 <a href="../../appendix/index.html">附录 A.3 开源工程总表</a>。</p>
+</section>
+<section id="pitfalls"><h2><span class="sec-num">§</span>常见误区</h2><div class="card warn"><ul><li>对标签图使用双线性插值：生成不存在的类别值。</li>
+<li>背景占 95% 时只报像素准确率：指标虚高。</li>
+<li>把 SAM 当成语义分割模型：它输出的是“提示对应的对象”，不带类别。</li>
+<li>忽略小目标：需单独报告小目标 IoU 与边界质量。</li></ul></div></section>
+<section id="exercises"><h2><span class="sec-num">§</span>习题与思考</h2><ol><li>写出 Dice 与 IoU 的换算关系，并说明为什么 Dice 在极不平衡分割里更常用。</li>
+<li>设计一个用 SAM 辅助标注、再用 U-Net 训练的闭环流程，列出质检环节。</li></ol></section>
+<section id="extra-links"><h2><span class="sec-num">§</span>扩展学习</h2>
+<p>以下资料按本章知识点挑选，可直接精读或对照源码；知识点地图里每一条也挂了 1～2 个直达链接。</p>
+<ul>
+<li><strong>MMSegmentation</strong>（分割）：语义分割算法全家桶<br><a href="https://github.com/open-mmlab/mmsegmentation" target="_blank" rel="noopener">MMSegmentation</a></li>
+<li><strong>Pytorch-UNet</strong>（分割）：U-Net 的简洁可读实现<br><a href="https://github.com/milesial/Pytorch-UNet" target="_blank" rel="noopener">Pytorch-UNet</a></li>
+<li><strong>Mask2Former</strong>（分割）：统一三类分割的掩码分类架构<br><a href="https://github.com/facebookresearch/Mask2Former" target="_blank" rel="noopener">Mask2Former</a></li>
+<li><strong>Segment Anything (SAM)</strong>（分割）：可提示分割基础模型<br><a href="https://github.com/facebookresearch/segment-anything" target="_blank" rel="noopener">Segment Anything (SAM)</a></li>
+<li><strong>MONAI</strong>（分割）：医学影像分割与复原的官方框架<br><a href="https://github.com/Project-MONAI/MONAI" target="_blank" rel="noopener">MONAI</a></li>
+</ul>
+<p class="code-hint">继续扩展：<a href="https://github.com/search?q=semantic%20instance%20segmentation%20open%20source&amp;type=repositories" target="_blank" rel="noopener">在 GitHub 检索本章相关开源工程</a> · <a href="https://www.google.com/search?q=semantic%20instance%20segmentation%20open%20source" target="_blank" rel="noopener">按本章主题检索资料</a> · <a href="../../index.html#resources">全书参考资源总表</a> · <a href="../../appendix/index.html">附录 A 速查与链接总表</a></p>
+</section>
+<section id="further"><h2><span class="sec-num">§</span>延伸阅读与内链</h2><ul><li><a href='../../part2/12-segmentation/index.html'>第 12 章 传统图像分割</a></li>
+<li><a href='../21-object-detection/index.html'>第 21 章 目标检测</a></li>
+<li><a href='../../part3/19-datasets-evaluation/index.html'>第 19 章 评测指标</a></li></ul></section>
+<footer class="pager" data-autofill></footer>
+<footer class="site-foot">
+<p class="credits"><strong>作者</strong>：汪亮（bertonwang）　<strong>联系邮箱</strong>：<a href="mailto:47608843@qq.com">47608843@qq.com</a></p>
+<p class="ai-note"><strong>AI 使用说明</strong>：本教材的知识框架、正文、Octave 示例代码与开源工程清单在 AI 辅助下整理生成，并经人工校订与静态自检。公式、数值与运行结果请以GNU Octave 实际输出及权威教材、官方文档为准；发现错漏欢迎通过上方邮箱勘误。</p>
+<p class="imprint">数字图像处理：从经典算法到智能方法 · 上卷每章一个 <code>code/*.m</code> Octave 脚本（由 <code>tools/extract_code.py</code> 从 HTML 同步） · 下卷给出官方开源工程链接 · GNU Octave 为自由软件，本书与之无从属关系。</p>
+</footer>
+</main>
+</body>
+</html>

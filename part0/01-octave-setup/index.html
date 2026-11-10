@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第 01 章 · GNU Octave 环境与图像 I/O | 数字图像处理：从经典算法到智能方法</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script src="../../assets/toc.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</head>
+<body data-root="../../" data-chapter="01">
+<aside id="sidebar"></aside>
+<main class="book-page">
+<nav class="breadcrumb" data-autofill>总目录</nav>
+<header class="chapter-head">
+<span class="kicker">卷首 · 工具与约定</span>
+<h1><span class="ch-num">第 01 章</span>GNU Octave 环境与图像 I/O</h1>
+<p class="lede">装好环境、统一数据类型、学会造测试图：这一章决定后面 14 章的代码能不能一次跑通。</p>
+<div class="meta">
+<span class="badge done">已完稿</span>
+<span>建议 2 学时</span>
+<span>2 个 Octave 实例</span>
+<span class="badge upper">上卷 · 传统算法</span>
+<span>数字图像处理：从经典算法到智能方法</span>
+</div></header>
+<div class="card objectives"><span class="card-label">学习目标</span><ul>
+<li>能在命令行与 GUI 两种模式下运行一个 .m 脚本</li>
+<li>说清 uint8 / double / logical 三种图像类型的差异与转换规则</li>
+<li>能自己合成阶跃、条纹、圆盘与带噪测试图</li>
+<li>会用一键验证脚本批量运行全书示例</li>
+</ul></div>
+<section id="map"><h2><span class="sec-num">§</span>知识点地图</h2>
+<p class="code-hint">每个知识点都配了 1～2 个扩展学习链接；本章完整资源清单见 <a href="#extra-links">扩展学习</a>。</p>
+<table><thead><tr><th style="width:44px">#</th><th style="width:26%">知识点</th><th>扩展学习</th><th style="width:100px">状态</th></tr></thead><tbody>
+<tr><td>1</td><td>安装与两种运行方式</td><td><a href="https://octave.org/" target="_blank" rel="noopener">GNU Octave</a> · <a href="https://docs.octave.org/latest/" target="_blank" rel="noopener">Octave 官方文档</a></td><td>正文已覆盖</td></tr>
+<tr><td>2</td><td>图像即矩阵：坐标与索引</td><td><a href="https://en.wikipedia.org/wiki/Image_moment" target="_blank" rel="noopener">Image moment</a> · <a href="https://en.wikipedia.org/wiki/Local_binary_patterns" target="_blank" rel="noopener">Local binary patterns</a></td><td>正文已覆盖</td></tr>
+<tr><td>3</td><td>数据类型与范围约定</td><td><a href="https://numpy.org/doc/stable/" target="_blank" rel="noopener">NumPy 文档</a> · <a href="https://docs.octave.org/latest/" target="_blank" rel="noopener">Octave 官方文档</a></td><td>正文已覆盖</td></tr>
+<tr><td>4</td><td>显示与保存</td><td><a href="https://octave.org/" target="_blank" rel="noopener">GNU Octave</a> · <a href="https://docs.octave.org/latest/" target="_blank" rel="noopener">Octave 官方文档</a></td><td>正文已覆盖</td></tr>
+<tr><td>5</td><td>合成测试图像</td><td><a href="https://octave.org/" target="_blank" rel="noopener">GNU Octave</a> · <a href="https://docs.octave.org/latest/" target="_blank" rel="noopener">Octave 官方文档</a></td><td>正文已覆盖</td></tr>
+<tr><td>6</td><td>一键验证脚本</td><td><a href="https://octave.org/" target="_blank" rel="noopener">GNU Octave</a> · <a href="https://docs.octave.org/latest/" target="_blank" rel="noopener">Octave 官方文档</a></td><td>正文已覆盖</td></tr>
+</tbody></table></section>
+<section id="s1-1"><h2><span class="sec-num">§1.1</span>安装与两种运行方式</h2>
+<p>GNU Octave 是免费的科学计算环境，语法与 MATLAB 高度兼容，Windows / macOS / Linux 都能装。推荐两种用法：</p>
+<ul><li><strong>GUI</strong>：适合看图和调参数，直接打开文件后按 F5。</li>
+<li><strong>命令行</strong>：<code>octave --no-gui --quiet code/00-hello-image.m</code>，适合批量跑和写自动化脚本。本书的 <code>tools/run_octave.sh</code> 就用这种方式。</li></ul>
+<pre class="code" data-file="inline" data-lang="Shell"><code># macOS (Homebrew)            # Ubuntu/Debian              # Windows
+brew install octave          sudo apt install octave      # 官网下载安装包 https://octave.org/download
+octave --version             octave --eval "disp(2+2)"    # 输出 4 即安装成功</code></pre>
+<p class="code-hint">本书示例<strong>不要求</strong>安装 image 包。若你想用 <code>imshow</code>、<code>imfilter</code>、<code>edge</code> 等现成函数，可执行 <code>pkg install -forge image</code> 并 <code>pkg load image</code>；但书中每个算法都会用核心函数手写一遍，以便看清实现。</p>
+</section>
+<section id="s1-2"><h2><span class="sec-num">§1.2</span>图像 = 矩阵：坐标与类型</h2>
+<table><thead><tr><th>类型</th><th>取值范围</th><th>典型用途</th><th>陷阱</th></tr></thead><tbody>
+<tr><td><code>uint8</code></td><td>0～255 整数</td><td>文件读写、节省内存</td><td>做加减会<strong>饱和截断</strong>，<code>uint8(200)+uint8(100)</code> 得 255 而不是 300</td></tr>
+<tr><td><code>double</code></td><td>本书统一为 [0,1]</td><td>滤波、变换、公式推导</td><td>超过 1 的值用 <code>imagesc(a,[0 1])</code> 会被裁白，先 <code>min(max(a,0),1)</code></td></tr>
+<tr><td><code>logical</code></td><td>0 / 1</td><td>掩模、区域、索引</td><td>与 double 混算前先 <code>double(mask)</code></td></tr>
+<tr><td><code>M×N×3</code></td><td>三个通道</td><td>RGB 彩色图</td><td>灰度图没有第三维，<code>size(a,3)</code> 为 1</td></tr>
+</tbody></table>
+<p>行列与坐标的对应关系请记牢：<code>f(r,c)</code> 表示第 <code>r</code> 行、第 <code>c</code> 列，几何坐标是 <code>(x,y)=(c,r)</code>。显示时用 <code>axis image</code> 保证纵横比不变，用 <code>colormap gray</code> 保证灰度图不被伪彩染色。</p>
+</section>
+<section id="s1-3"><h2><span class="sec-num">§1.3</span>显示、保存与文件读写</h2>
+<p>核心的显示三件套是 <code>imagesc</code> + <code>colormap gray</code> + <code>axis image off</code>；<code>imagesc(a,[0 1])</code> 的第二个参数固定显示范围，避免不同图自动缩放造成视觉误判。</p>
+<p>需要读真实照片时，Octave 自带的 <code>imread</code> / <code>imwrite</code> 可以直接用：</p>
+<pre class="code" data-file="inline" data-lang="Octave 片段"><code>a = imread("photo.png");        % 通常是 uint8 MxNx3
+g = double(a) / 255;            % 转到本书统一的 [0,1] double
+imwrite(uint8(g * 255), "out.png");
+printf("size: %d x %d x %d
+", size(g,1), size(g,2), size(g,3));</code></pre>
+<p class="code-hint">外部图片不可控（光照、压缩、尺寸），所以<strong>全书示例一律用合成图</strong>：数值可预测、结果可复现、无需附带素材文件。学会造测试图是做算法实验的基本功。</p>
+</section>
+<section id="s1-4"><h2><span class="sec-num">§1.4</span>代码契约与一键验证</h2>
+<p>每个 <code>.m</code> 脚本都分成五段：<strong>参数区 → 造图 → 算法 → 数值验证 → 可视化</strong>。可视化被 <code>if SHOW</code> 包住，<code>SHOW</code> 由环境变量 <code>IP_HEADLESS</code> 控制：</p>
+<pre class="code" data-file="inline" data-lang="Shell"><code># 交互式：看图 + 看数值
+octave --no-gui --quiet code/03-histeq.m
+# 批量：不弹窗，只检查每个脚本能否正常结束、数值是否打印
+IP_HEADLESS=1 ./tools/run_octave.sh
+# 只跑某一个脚本
+IP_HEADLESS=1 ./tools/run_octave.sh part1/03-gray-transform/code/03-histeq.m</code></pre>
+<p>HTML 页面里的代码块与磁盘上的 <code>code/*.m</code> 由 <code>tools/extract_code.py</code> 自动同步；<code>tools/check_book.py</code> 会检查两者一致、脚本是否含参数区与数值打印、是否误用了 image 包专有函数。</p>
+</section>
+<section id="lab"><h2><span class="sec-num">§</span>Octave 实例</h2>
+<h3>数据类型、范围与饱和截断</h3>
+<pre class="code" data-file="code/01-types-and-range.m" data-lang="GNU Octave"><code>%% 01-types-and-range.m | uint8 / double / logical 的行为差异
+%% GNU Octave，零第三方依赖；合成图像，无需任何外部文件
+clear; close all; clc;
+SHOW = ~strcmp(getenv("IP_HEADLESS"), "1");
+% ---- 参数区 ----
+v = 200;
+% ---- 算法：观察 uint8 的饱和与 double 的线性 ----
+u = uint8(v);
+printf("uint8(%d) + uint8(100) = %d  (饱和到 255)\n", v, u + uint8(100));
+printf("double(%d)/255 + 0.4   = %.4f\n", v, double(v)/255 + 0.4);
+g = (0:255) / 255;                     % 0~1 渐变
+clipped = min(max(g * 2, 0), 1);       % 超过 1 的部分必须裁掉
+printf("渐变 g: min=%.3f max=%.3f mean=%.4f\n", min(g), max(g), mean(g));
+printf("放大 2 倍后未裁剪的比例: %.2f%%\n", 100 * mean(g * 2 &gt; 1));
+mask = g &gt; 0.5;
+printf("logical 掩模: class=%s 命中 %d / %d\n", class(mask), sum(mask(:)), numel(mask));
+printf("掩模均值（double 化后）: %.4f\n", mean(double(mask(:))));
+% ---- 可视化 ----
+if SHOW
+  figure("name", "01 范围与裁剪");
+  subplot(1, 2, 1); plot(g * 2); grid on; title("未裁剪：最大值 2"); ylim([0 2.2]);
+  subplot(1, 2, 2); plot(clipped); grid on; title("裁剪到 [0,1]"); ylim([0 1.2]);
+end</code></pre>
+<p class="code-hint"><strong>操作：</strong>运行后对照四行打印值；把 &lt;code&gt;v&lt;/code&gt; 改成 100 再跑一次，看饱和是否还发生。　<strong>预期与判读：</strong>uint8 相加得 255；double 得约 1.1843；渐变均值 0.5；放大 2 倍后恰好 50% 越界；掩模命中 128/256，均值 0.5。　文件位置：<code>part0/01-octave-setup/code/01-types-and-range.m</code></p>
+<h3>合成测试图与噪声注入</h3>
+<pre class="code" data-file="code/01-synthetic-images.m" data-lang="GNU Octave"><code>%% 01-synthetic-images.m | 阶跃 / 条纹 / 圆盘 + 高斯与椒盐噪声
+%% GNU Octave，零第三方依赖；合成图像，无需任何外部文件
+clear; close all; clc;
+SHOW = ~strcmp(getenv("IP_HEADLESS"), "1");
+% ---- 参数区 ----
+N = 256; sigma = 0.06; salt_rate = 0.02; rand("seed", 7); randn("seed", 7);
+% ---- 造图 ----
+[X, Y] = meshgrid(1:N, 1:N);
+step  = double(X &gt; N/2);
+stripe = 0.5 + 0.35 * sin(2*pi*X/24);
+disk  = double((X - 0.5*N).^2 + (Y - 0.5*N).^2 &lt; (0.28*N)^2);
+base  = 0.25 + 0.6 * disk;
+% ---- 噪声：高斯加性 + 椒盐脉冲 ----
+noisy = base + sigma * randn(N, N);
+sp = rand(N, N);
+noisy(sp &lt; salt_rate/2) = 0;
+noisy(sp &gt; 1 - salt_rate/2) = 1;
+noisy = min(max(noisy, 0), 1);
+% ---- 数值验证 ----
+printf("step : mean=%.4f (期望 0.5)\n", mean(step(:)));
+printf("stripe: min=%.3f max=%.3f mean=%.4f\n", min(stripe(:)), max(stripe(:)), mean(stripe(:)));
+printf("disk : 面积占比=%.4f (pi*0.28^2=%.4f)\n", mean(disk(:)), pi*0.28^2);
+printf("noisy: 与干净图的 MSE=%.6f, PSNR=%.2f dB\n", ...
+       mean((noisy(:)-base(:)).^2), 10*log10(1/mean((noisy(:)-base(:)).^2)));
+% ---- 可视化 ----
+if SHOW
+  figure("name", "01 合成测试图");
+  subplot(2, 2, 1); imagesc(step, [0 1]); colormap gray; axis image off; title("阶跃");
+  subplot(2, 2, 2); imagesc(stripe, [0 1]); axis image off; title("正弦条纹");
+  subplot(2, 2, 3); imagesc(disk, [0 1]); axis image off; title("圆盘掩模");
+  subplot(2, 2, 4); imagesc(noisy, [0 1]); axis image off; title("高斯 + 椒盐噪声");
+end</code></pre>
+<p class="code-hint"><strong>操作：</strong>运行脚本；把 &lt;code&gt;sigma&lt;/code&gt; 改为 0.02 / 0.15，记录 PSNR 的变化趋势。　<strong>预期与判读：</strong>阶跃均值 0.5；条纹范围约 0.15～0.85、均值 0.5；圆盘面积占比约 0.2463（π·0.28²）；噪声图的 MSE 与 PSNR 随 sigma 单调变化。　文件位置：<code>part0/01-octave-setup/code/01-synthetic-images.m</code></p>
+<div class="card note"><p style="margin-bottom:0">代码块右上角可一键复制；本仓库 <code>code/*.m</code> 由 <code>tools/extract_code.py</code> 从这些代码块自动抽取，页面与脚本永远一致。脚本只用 Octave 核心函数，设 <code>IP_HEADLESS=1</code> 可跳过绘图。</p></div>
+</section>
+<section id="pitfalls"><h2><span class="sec-num">§</span>常见误区</h2><div class="card warn"><ul><li>对 uint8 直接做加减导致静默饱和：先 &lt;code&gt;double(a)/255&lt;/code&gt; 再运算。</li>
+<li>显示时不固定范围：&lt;code&gt;imagesc(a,[0 1])&lt;/code&gt; 才能跨图比较亮度。</li>
+<li>把噪声图的越界值直接显示：&lt;code&gt;min(max(a,0),1)&lt;/code&gt; 后再画图与算指标。</li>
+<li>忘了 &lt;code&gt;clear&lt;/code&gt; 与固定随机种子，导致两次运行结果不同、无法对照。</li></ul></div></section>
+<section id="exercises"><h2><span class="sec-num">§</span>习题与思考</h2><ol><li>把 01-types-and-range.m 的 &lt;code&gt;v&lt;/code&gt; 改成 100，解释为什么这次不发生饱和。</li>
+<li>在 01-synthetic-images.m 里把椒盐比例提高到 0.1，预测 MSE 与 PSNR 的变化方向并核对。</li></ol></section>
+<section id="extra-links"><h2><span class="sec-num">§</span>扩展学习</h2>
+<p>以下资料按本章知识点挑选，可直接精读或对照源码；知识点地图里每一条也挂了 1～2 个直达链接。</p>
+<ul>
+<li><strong>GNU Octave</strong>（工具）：免费、与 MATLAB 语法高度兼容的科学计算环境，本书上卷代码的目标平台<br><a href="https://octave.org/" target="_blank" rel="noopener">GNU Octave</a></li>
+<li><strong>Octave 官方文档</strong>（文档）：函数参考与语言手册，查 conv2/fft2/imagesc 的权威出处<br><a href="https://docs.octave.org/latest/" target="_blank" rel="noopener">Octave 官方文档</a></li>
+<li><strong>Octave image 包</strong>（工具）：可选的图像处理函数包；本书示例刻意不依赖它<br><a href="https://octave.sourceforge.io/image/" target="_blank" rel="noopener">Octave image 包</a></li>
+<li><strong>ImageJ / Fiji</strong>（工具）：科研图像测量与批处理工具，适合做人工核对<br><a href="https://imagej.net/" target="_blank" rel="noopener">ImageJ / Fiji</a></li>
+</ul>
+<p class="code-hint">继续扩展：<a href="https://github.com/search?q=GNU%20Octave%20image%20processing%20examples&amp;type=repositories" target="_blank" rel="noopener">在 GitHub 检索本章相关开源工程</a> · <a href="https://www.google.com/search?q=GNU%20Octave%20image%20processing%20examples" target="_blank" rel="noopener">按本章主题检索资料</a> · <a href="../../index.html#resources">全书参考资源总表</a> · <a href="../../appendix/index.html">附录 A 速查与链接总表</a></p>
+</section>
+<section id="further"><h2><span class="sec-num">§</span>延伸阅读与内链</h2><ul><li><a href='../00-preface/index.html'>第 0 章 绪论</a></li>
+<li><a href='../02-image-basics/index.html'>第 2 章 图像的数学表示</a></li>
+<li><a href='../../appendix/index.html'>附录 A.1 Octave 函数速查</a></li></ul></section>
+<footer class="pager" data-autofill></footer>
+<footer class="site-foot">
+<p class="credits"><strong>作者</strong>：汪亮（bertonwang）　<strong>联系邮箱</strong>：<a href="mailto:47608843@qq.com">47608843@qq.com</a></p>
+<p class="ai-note"><strong>AI 使用说明</strong>：本教材的知识框架、正文、Octave 示例代码与开源工程清单在 AI 辅助下整理生成，并经人工校订与静态自检。公式、数值与运行结果请以GNU Octave 实际输出及权威教材、官方文档为准；发现错漏欢迎通过上方邮箱勘误。</p>
+<p class="imprint">数字图像处理：从经典算法到智能方法 · 上卷每章一个 <code>code/*.m</code> Octave 脚本（由 <code>tools/extract_code.py</code> 从 HTML 同步） · 下卷给出官方开源工程链接 · GNU Octave 为自由软件，本书与之无从属关系。</p>
+</footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第 10 章 · 边缘检测 | 数字图像处理：从经典算法到智能方法</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script src="../../assets/toc.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</head>
+<body data-root="../../" data-chapter="10">
+<aside id="sidebar"></aside>
+<main class="book-page">
+<nav class="breadcrumb" data-autofill>总目录</nav>
+<header class="chapter-head">
+<span class="kicker">第二篇 · 结构分析与理解</span>
+<h1><span class="ch-num">第 10 章</span>边缘检测</h1>
+<p class="lede">边缘是图像的一阶导数极值、二阶导数过零；Canny 把这条数学事实变成了五个可调试的工程步骤。</p>
+<div class="meta">
+<span class="badge done">已完稿</span>
+<span>建议 4 学时</span>
+<span>2 个 Octave 实例</span>
+<span class="badge upper">上卷 · 传统算法</span>
+<span>数字图像处理：从经典算法到智能方法</span>
+</div></header>
+<div class="card objectives"><span class="card-label">学习目标</span><ul>
+<li>能说明阶跃边缘在一阶/二阶导数上的表现</li>
+<li>能手工构造 Sobel 核并解释平滑与差分的组合</li>
+<li>说清 Canny 每一步解决什么问题、三个参数怎么调</li>
+<li>理解 LoG/DoG 与尺度空间的关系</li>
+</ul></div>
+<section id="map"><h2><span class="sec-num">§</span>知识点地图</h2>
+<p class="code-hint">每个知识点都配了 1～2 个扩展学习链接；本章完整资源清单见 <a href="#extra-links">扩展学习</a>。</p>
+<table><thead><tr><th style="width:44px">#</th><th style="width:26%">知识点</th><th>扩展学习</th><th style="width:100px">状态</th></tr></thead><tbody>
+<tr><td>1</td><td>边缘的数学模型</td><td><a href="https://en.wikipedia.org/wiki/Canny_edge_detector" target="_blank" rel="noopener">Canny edge detector</a> · <a href="https://en.wikipedia.org/wiki/Sobel_operator" target="_blank" rel="noopener">Sobel operator</a></td><td>正文已覆盖</td></tr>
+<tr><td>2</td><td>梯度算子 Sobel / Prewitt</td><td><a href="https://en.wikipedia.org/wiki/Sobel_operator" target="_blank" rel="noopener">Sobel operator</a> · <a href="https://en.wikipedia.org/wiki/Canny_edge_detector" target="_blank" rel="noopener">Canny edge detector</a></td><td>正文已覆盖</td></tr>
+<tr><td>3</td><td>梯度幅值与方向</td><td><a href="https://en.wikipedia.org/wiki/Sobel_operator" target="_blank" rel="noopener">Sobel operator</a> · <a href="https://en.wikipedia.org/wiki/Canny_edge_detector" target="_blank" rel="noopener">Canny edge detector</a></td><td>正文已覆盖</td></tr>
+<tr><td>4</td><td>LoG 与尺度空间</td><td><a href="https://en.wikipedia.org/wiki/Sobel_operator" target="_blank" rel="noopener">Sobel operator</a> · <a href="https://en.wikipedia.org/wiki/Canny_edge_detector" target="_blank" rel="noopener">Canny edge detector</a></td><td>正文已覆盖</td></tr>
+<tr><td>5</td><td>Canny 五步流程</td><td><a href="https://en.wikipedia.org/wiki/Canny_edge_detector" target="_blank" rel="noopener">Canny edge detector</a> · <a href="https://en.wikipedia.org/wiki/Sobel_operator" target="_blank" rel="noopener">Sobel operator</a></td><td>正文已覆盖</td></tr>
+<tr><td>6</td><td>非极大抑制</td><td><a href="https://en.wikipedia.org/wiki/Canny_edge_detector" target="_blank" rel="noopener">Canny edge detector</a> · <a href="https://en.wikipedia.org/wiki/Sobel_operator" target="_blank" rel="noopener">Sobel operator</a></td><td>正文已覆盖</td></tr>
+<tr><td>7</td><td>双阈值与滞后连接</td><td><a href="https://en.wikipedia.org/wiki/Otsu%27s_method" target="_blank" rel="noopener">Otsu&#x27;s method</a> · <a href="https://en.wikipedia.org/wiki/K-means_clustering" target="_blank" rel="noopener">k-means clustering</a></td><td>正文已覆盖</td></tr>
+</tbody></table></section>
+<section id="s10-1"><h2><span class="sec-num">§10.1</span>边缘的数学模型</h2>
+<p>边缘是灰度<strong>不连续</strong>的地方。理想阶跃边缘的一阶导数是一个尖峰、二阶导数是一对正负过零点；真实成像总有模糊，所以边缘是<strong>斜坡</strong>，一阶导数变成有限宽的峰、二阶导数出现零交叉。</p>
+<table><thead><tr><th>方法族</th><th>判据</th><th>代表</th></tr></thead><tbody>
+<tr><td>一阶导数</td><td>梯度幅值超过阈值 + 局部极大</td><td>Roberts / Prewitt / Sobel / Canny</td></tr>
+<tr><td>二阶导数</td><td>零交叉</td><td>Laplacian / LoG / Marr-Hildreth</td></tr>
+<tr><td>参数模型</td><td>拟合阶跃后求亚像素位置</td><td>亚像素边缘、直线拟合</td></tr>
+</tbody></table>
+<p>二阶导数对噪声更敏感，因此几乎总要先高斯平滑——这就是 LoG（高斯拉普拉斯）名字的由来。</p>
+</section>
+<section id="s10-2"><h2><span class="sec-num">§10.2</span>梯度算子与非极大抑制</h2>
+<p>Sobel 的 <code>x</code> 方向核是<strong>平滑（[1 2 1]）× 差分（[−1 0 1]）</strong>的外积：</p>
+<span class="eq">Gₓ = [−1 0 1; −2 0 2; −1 0 1]，　G_y = Gₓᵀ，　|∇f| = √(Gₓ² + G_y²)，　θ = atan2(G_y, Gₓ)</span>
+<p>常用 <code>|Gₓ|+|G_y|</code> 近似幅值以省去开方。得到幅值图后要<strong>非极大抑制（NMS）</strong>：沿梯度方向比较前后两个邻点，只保留局部最大，把粗边缘细化成单像素宽。方向先量化到 0°/45°/90°/135° 四类，再用对应邻点比较。</p>
+</section>
+<section id="s10-3"><h2><span class="sec-num">§10.3</span>LoG、DoG 与尺度</h2>
+<p><code>LoG = ∇²(G_σ ∗ f)</code>，用不同 σ 卷积可检测<strong>不同尺度</strong>的边缘：σ 小看细节与噪声，σ 大看轮廓。两个相邻尺度的高斯差（DoG）是 LoG 的高效近似，既是 SIFT 关键点检测的基础（第 11 章），也是很多“细节增强”算法的原型。</p>
+<div class="card note"><p style="margin-bottom:0">尺度选择不是玄学：<strong>σ 应匹配待检测结构的宽度</strong>。用同一个 σ 处理整幅图，等于假设所有边缘宽度相同；尺度空间方法显式承认这个假设不成立。</p></div>
+</section>
+<section id="s10-4"><h2><span class="sec-num">§10.4</span>Canny 的五步与三个参数</h2>
+<ol><li><strong>高斯平滑</strong>（σ）：抑制噪声，但过大会丢细边缘。</li>
+<li><strong>算梯度幅值与方向</strong>：Sobel 或其它一阶算子。</li>
+<li><strong>非极大抑制</strong>：细化到单像素。</li>
+<li><strong>双阈值</strong>（T_high、T_low）：高于 T_high 判为强边缘，介于两者判为弱边缘，低于 T_low 丢弃。</li>
+<li><strong>滞后连接</strong>：弱边缘只有与强边缘连通才保留，从而在保住连续轮廓的同时抑制噪声碎片。</li></ol>
+<p>三个参数的关系比绝对值更重要：常用 <code>T_low ≈ 0.4·T_high</code>。评估时不要只看“边缘好不好看”，还要看<strong>连通性、定位误差、重复率</strong>；下卷的检测/分割网络把这类低级边缘特征换成了学出来的层次特征，但 NMS 的思想在检测框后处理里原样保留（第 21 章）。</p>
+</section>
+<section id="lab"><h2><span class="sec-num">§</span>Octave 实例</h2>
+<h3>Sobel 梯度、幅值与方向的数值对照</h3>
+<pre class="code" data-file="code/10-gradient.m" data-lang="GNU Octave"><code>%% 10-gradient.m | Sobel 梯度 / 幅值 / 方向 / 阈值边缘
+%% GNU Octave，零第三方依赖；合成图像，无需任何外部文件
+clear; close all; clc;
+SHOW = ~strcmp(getenv("IP_HEADLESS"), "1");
+% ---- 参数区 ----
+N = 128; thresh = 0.35;
+% ---- 造图：圆盘 + 矩形，带一点噪声 ----
+[X, Y] = meshgrid(1:N, 1:N); randn("seed", 61);
+f = 0.25 + 0.5*double((X-70).^2 + (Y-64).^2 &lt; 30^2);
+f(20:45, 15:40) = 0.85;
+f = min(max(f + 0.01*randn(N,N), 0), 1);
+% ---- 算法：Sobel = 平滑 x 差分的外积 ----
+smooth = [1 2 1]; diff = [-1 0 1];
+Gx = smooth' * diff;  Gy = diff' * smooth;
+dx = conv2(f, Gx, "same"); dy = conv2(f, Gy, "same");
+mag = sqrt(dx.^2 + dy.^2);
+dirn = atan2(dy, dx) * 180 / pi;
+edges = mag &gt; thresh;
+% ---- 数值验证 ----
+printf("Sobel Gx 元素和 = %.1f, Gy 元素和 = %.1f（差分核和为 0）\n", sum(Gx(:)), sum(Gy(:)));
+printf("梯度幅值: max=%.4f mean=%.4f\n", max(mag(:)), mean(mag(:)));
+printf("平坦区域中心幅值 = %.6f（应接近噪声量级）\n", mag(5,5));
+printf("阈值 %.2f 下的边缘像素数 = %d / %d (%.2f%%)\n", ...
+       thresh, sum(edges(:)), N*N, 100*mean(edges(:)));
+printf("圆盘边界点 (70,34) 的梯度方向 = %.1f 度\n", dirn(34,70));
+% ---- 可视化 ----
+if SHOW
+  figure("name", "10 Sobel 梯度");
+  subplot(2, 2, 1); imagesc(f, [0 1]); colormap gray; axis image off; title("原图");
+  subplot(2, 2, 2); imagesc(abs(dx)); axis image off; title("|Gx| 竖直边缘响应");
+  subplot(2, 2, 3); imagesc(mag); axis image off; title("梯度幅值");
+  subplot(2, 2, 4); imagesc(edges, [0 1]); axis image off; title("阈值边缘（未细化）");
+end</code></pre>
+<p class="code-hint"><strong>操作：</strong>运行后把 &lt;code&gt;thresh&lt;/code&gt; 改成 0.1 / 0.8，记录边缘像素数；观察阈值图里边缘是粗带而不是细线。　<strong>预期与判读：</strong>两个 Sobel 核元素和均为 0；平坦区梯度接近噪声量级；圆盘边界处梯度方向沿径向；简单阈值得到的边缘较粗，说明需要非极大抑制。　文件位置：<code>part2/10-edge-detection/code/10-gradient.m</code></p>
+<h3>可运行版 Canny 核心：平滑 → 梯度 → NMS → 双阈值</h3>
+<pre class="code" data-file="code/10-canny-core.m" data-lang="GNU Octave"><code>%% 10-canny-core.m | Canny 核心四步（滞后连接用 3x3 膨胀近似）
+%% GNU Octave，零第三方依赖；合成图像，无需任何外部文件
+clear; close all; clc;
+SHOW = ~strcmp(getenv("IP_HEADLESS"), "1");
+% ---- 参数区 ----
+N = 128; sigma = 1.2; Th = 0.30; Tl = 0.12; randn("seed", 62);
+% ---- 造图 ----
+[X, Y] = meshgrid(1:N, 1:N);
+f = 0.25 + 0.55*double((X-64).^2 + (Y-64).^2 &lt; 32^2);
+f(15:40, 15:40) = 0.85;
+f = min(max(f + 0.015*randn(N,N), 0), 1);
+% ---- 1) 高斯平滑 ----
+x = -4:4; w = exp(-x.^2/(2*sigma^2)); w = w/sum(w);
+s = conv2(conv2(f, w, "same"), w', "same");
+% ---- 2) 梯度 ----
+Gx = [1 2 1]' * [-1 0 1]; Gy = [-1 0 1]' * [1 2 1];
+dx = conv2(s, Gx, "same"); dy = conv2(s, Gy, "same");
+mag = sqrt(dx.^2 + dy.^2); ang = mod(atan2(dy,dx)*180/pi, 180);
+% ---- 3) 非极大抑制（方向量化到 4 类）----
+nms = mag;
+for r = 2:N-1
+  for c = 2:N-1
+    a = ang(r,c);
+    if a &lt; 22.5 || a &gt;= 157.5,     n1 = mag(r,c-1);   n2 = mag(r,c+1);
+    elseif a &lt; 67.5,               n1 = mag(r-1,c+1); n2 = mag(r+1,c-1);
+    elseif a &lt; 112.5,              n1 = mag(r-1,c);   n2 = mag(r+1,c);
+    else,                          n1 = mag(r-1,c-1); n2 = mag(r+1,c+1); end
+    if mag(r,c) &lt; n1 || mag(r,c) &lt; n2, nms(r,c) = 0; end
+  end
+end
+% ---- 4) 双阈值 + 弱边缘与强边缘连通性（膨胀近似）----
+strong = nms &gt; Th; weak = nms &gt; Tl &amp; nms &lt;= Th;
+p = ones(3,3); grow = conv2(double(strong), p, "same") &gt; 0;
+final = strong | (weak &amp; grow);
+% ---- 数值验证 ----
+printf("平滑后噪声标准差估计 = %.5f\n", std(s(1:10,1:10)(:)));
+printf("NMS 前非零像素 = %d, NMS 后 = %d（细化比例 %.1f%%）\n", ...
+       sum(mag(:)&gt;0), sum(nms(:)&gt;0), 100*sum(nms(:)&gt;0)/sum(mag(:)&gt;0));
+printf("强边缘 = %d, 弱边缘 = %d, 最终保留 = %d\n", ...
+       sum(strong(:)), sum(weak(:)), sum(final(:)));
+printf("参数比 Tl/Th = %.3f（常用 0.4）\n", Tl/Th);
+% ---- 可视化 ----
+if SHOW
+  figure("name", "10 Canny 核心");
+  subplot(1, 3, 1); imagesc(f, [0 1]); colormap gray; axis image off; title("原图");
+  subplot(1, 3, 2); imagesc(mag); axis image off; title("梯度幅值");
+  subplot(1, 3, 3); imagesc(final, [0 1]); axis image off; title("NMS + 双阈值");
+end</code></pre>
+<p class="code-hint"><strong>操作：</strong>运行后把 &lt;code&gt;sigma&lt;/code&gt; 改成 3、&lt;code&gt;Th&lt;/code&gt; 改成 0.1，观察强边缘数与断裂情况。　<strong>预期与判读：</strong>NMS 把非零响应压缩到约几分之一，边缘变细；弱边缘中只有与强边缘相邻的部分被保留；σ 增大则细边缘消失、轮廓更连续；&lt;code&gt;Tl/Th&lt;/code&gt; 约 0.4 是常用经验值。　文件位置：<code>part2/10-edge-detection/code/10-canny-core.m</code></p>
+<div class="card note"><p style="margin-bottom:0">代码块右上角可一键复制；本仓库 <code>code/*.m</code> 由 <code>tools/extract_code.py</code> 从这些代码块自动抽取，页面与脚本永远一致。脚本只用 Octave 核心函数，设 <code>IP_HEADLESS=1</code> 可跳过绘图。</p></div>
+</section>
+<section id="pitfalls"><h2><span class="sec-num">§</span>常见误区</h2><div class="card warn"><ul><li>直接对原图算梯度：噪声被当成边缘，阈值调不出来。</li>
+<li>NMS 时把梯度方向当成边缘方向：比较应沿&lt;strong&gt;梯度&lt;/strong&gt;方向（垂直于边缘）进行。</li>
+<li>阈值用绝对灰度值而非梯度幅值：换一张对比度不同的图就失效。</li>
+<li>只看边缘图是否好看：不检查连通性会让后续轮廓提取（第 13 章）失败。</li></ul></div></section>
+<section id="exercises"><h2><span class="sec-num">§</span>习题与思考</h2><ol><li>证明 Sobel 核可以写成 &lt;code&gt;[1 2 1]ᵀ·[−1 0 1]&lt;/code&gt;，并解释为什么这样能同时平滑与差分。</li>
+<li>在 10-canny-core.m 里去掉 NMS 直接做双阈值，比较最终边缘像素数与视觉宽度。</li></ol></section>
+<section id="extra-links"><h2><span class="sec-num">§</span>扩展学习</h2>
+<p>以下资料按本章知识点挑选，可直接精读或对照源码；知识点地图里每一条也挂了 1～2 个直达链接。</p>
+<ul>
+<li><strong>Sobel operator</strong>（百科）：离散梯度核与方向估计<br><a href="https://en.wikipedia.org/wiki/Sobel_operator" target="_blank" rel="noopener">Sobel operator</a></li>
+<li><strong>Canny edge detector</strong>（百科）：高斯平滑、非极大抑制与双阈值<br><a href="https://en.wikipedia.org/wiki/Canny_edge_detector" target="_blank" rel="noopener">Canny edge detector</a></li>
+<li><strong>OpenCV Tutorials</strong>（文档）：官方教程，含滤波、形态学、特征与几何变换的示例<br><a href="https://docs.opencv.org/master/d6/d00/tutorial_py_root.html" target="_blank" rel="noopener">OpenCV Tutorials</a></li>
+<li><strong>scikit-image User Guide</strong>（文档）：按任务组织的传统算法讲解，适合与本书章节互相对照<br><a href="https://scikit-image.org/docs/stable/user_guide/" target="_blank" rel="noopener">scikit-image User Guide</a></li>
+</ul>
+<p class="code-hint">继续扩展：<a href="https://github.com/search?q=Canny%20edge%20detector%20Octave&amp;type=repositories" target="_blank" rel="noopener">在 GitHub 检索本章相关开源工程</a> · <a href="https://www.google.com/search?q=Canny%20edge%20detector%20Octave" target="_blank" rel="noopener">按本章主题检索资料</a> · <a href="../../index.html#resources">全书参考资源总表</a> · <a href="../../appendix/index.html">附录 A 速查与链接总表</a></p>
+</section>
+<section id="further"><h2><span class="sec-num">§</span>延伸阅读与内链</h2><ul><li><a href='../11-features/index.html'>第 11 章 局部特征与描述</a></li>
+<li><a href='../13-descriptors/index.html'>第 13 章 表示、描述与纹理</a></li>
+<li><a href='../../part3/17-cnn-fundamentals/index.html'>第 17 章 CNN 基础（学的第一层就是这些梯度核）</a></li></ul></section>
+<footer class="pager" data-autofill></footer>
+<footer class="site-foot">
+<p class="credits"><strong>作者</strong>：汪亮（bertonwang）　<strong>联系邮箱</strong>：<a href="mailto:47608843@qq.com">47608843@qq.com</a></p>
+<p class="ai-note"><strong>AI 使用说明</strong>：本教材的知识框架、正文、Octave 示例代码与开源工程清单在 AI 辅助下整理生成，并经人工校订与静态自检。公式、数值与运行结果请以GNU Octave 实际输出及权威教材、官方文档为准；发现错漏欢迎通过上方邮箱勘误。</p>
+<p class="imprint">数字图像处理：从经典算法到智能方法 · 上卷每章一个 <code>code/*.m</code> Octave 脚本（由 <code>tools/extract_code.py</code> 从 HTML 同步） · 下卷给出官方开源工程链接 · GNU Octave 为自由软件，本书与之无从属关系。</p>
+</footer>
+</main>
+</body>
+</html>

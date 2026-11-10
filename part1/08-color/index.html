@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第 08 章 · 彩色与多通道处理 | 数字图像处理：从经典算法到智能方法</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script src="../../assets/toc.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</head>
+<body data-root="../../" data-chapter="08">
+<aside id="sidebar"></aside>
+<main class="book-page">
+<nav class="breadcrumb" data-autofill>总目录</nav>
+<header class="chapter-head">
+<span class="kicker">第一篇 · 基础变换与增强</span>
+<h1><span class="ch-num">第 08 章</span>彩色与多通道处理</h1>
+<p class="lede">RGB 只是坐标之一：换到 HSV/Lab 之后，很多“难做的阈值”会变成一次简单的范围判断。</p>
+<div class="meta">
+<span class="badge done">已完稿</span>
+<span>建议 3 学时</span>
+<span>1 个 Octave 实例</span>
+<span class="badge upper">上卷 · 传统算法</span>
+<span>数字图像处理：从经典算法到智能方法</span>
+</div></header>
+<div class="card objectives"><span class="card-label">学习目标</span><ul>
+<li>能说清 RGB、HSV、Lab、YCbCr 各自适合的场合</li>
+<li>会写灰度化与灰度世界白平衡并判断其假设</li>
+<li>能实现基于色相/饱和度的颜色分割</li>
+<li>理解色彩恒常性为什么是欠定问题</li>
+</ul></div>
+<section id="map"><h2><span class="sec-num">§</span>知识点地图</h2>
+<p class="code-hint">每个知识点都配了 1～2 个扩展学习链接；本章完整资源清单见 <a href="#extra-links">扩展学习</a>。</p>
+<table><thead><tr><th style="width:44px">#</th><th style="width:26%">知识点</th><th>扩展学习</th><th style="width:100px">状态</th></tr></thead><tbody>
+<tr><td>1</td><td>RGB 与加色模型</td><td><a href="https://en.wikipedia.org/wiki/HSL_and_HSV" target="_blank" rel="noopener">HSL and HSV</a> · <a href="https://en.wikipedia.org/wiki/CIELAB_color_space" target="_blank" rel="noopener">CIELAB color space</a></td><td>正文已覆盖</td></tr>
+<tr><td>2</td><td>HSV / Lab / YCbCr</td><td><a href="https://en.wikipedia.org/wiki/HSL_and_HSV" target="_blank" rel="noopener">HSL and HSV</a> · <a href="https://en.wikipedia.org/wiki/CIELAB_color_space" target="_blank" rel="noopener">CIELAB color space</a></td><td>正文已覆盖</td></tr>
+<tr><td>3</td><td>灰度化与亮度权重</td><td><a href="https://en.wikipedia.org/wiki/HSL_and_HSV" target="_blank" rel="noopener">HSL and HSV</a> · <a href="https://en.wikipedia.org/wiki/CIELAB_color_space" target="_blank" rel="noopener">CIELAB color space</a></td><td>正文已覆盖</td></tr>
+<tr><td>4</td><td>颜色分割与阈值</td><td><a href="https://en.wikipedia.org/wiki/Otsu%27s_method" target="_blank" rel="noopener">Otsu&#x27;s method</a> · <a href="https://en.wikipedia.org/wiki/K-means_clustering" target="_blank" rel="noopener">k-means clustering</a></td><td>正文已覆盖</td></tr>
+<tr><td>5</td><td>灰度世界白平衡</td><td><a href="https://en.wikipedia.org/wiki/HSL_and_HSV" target="_blank" rel="noopener">HSL and HSV</a> · <a href="https://en.wikipedia.org/wiki/CIELAB_color_space" target="_blank" rel="noopener">CIELAB color space</a></td><td>正文已覆盖</td></tr>
+<tr><td>6</td><td>色彩恒常性</td><td><a href="https://en.wikipedia.org/wiki/HSL_and_HSV" target="_blank" rel="noopener">HSL and HSV</a> · <a href="https://en.wikipedia.org/wiki/CIELAB_color_space" target="_blank" rel="noopener">CIELAB color space</a></td><td>正文已覆盖</td></tr>
+</tbody></table></section>
+<section id="s8-1"><h2><span class="sec-num">§8.1</span>常用色彩空间</h2>
+<table><thead><tr><th>空间</th><th>分量</th><th>适合做什么</th></tr></thead><tbody>
+<tr><td>RGB</td><td>红绿蓝</td><td>采集、显示、存储；三通道高度相关，直接做阈值容易受光照影响</td></tr>
+<tr><td>HSV / HSL</td><td>色相、饱和度、明度</td><td>按“颜色”分割：色相基本不受亮度变化影响</td></tr>
+<tr><td>Lab</td><td>亮度 L + 色度 a/b</td><td>感知近似均匀，适合色差度量与聚类</td></tr>
+<tr><td>YCbCr / YUV</td><td>亮度 Y + 色度</td><td>视频与 JPEG：可对色度下采样而几乎不损视觉</td></tr>
+</tbody></table>
+<p>灰度化不是简单平均。感知亮度常用 <code>Y = 0.299R + 0.587G + 0.114B</code>（人眼对绿最敏感）；第 14 章 JPEG 用的正是这类亮度/色度分离。</p>
+</section>
+<section id="s8-2"><h2><span class="sec-num">§8.2</span>按颜色分割</h2>
+<p>在 RGB 里判断“红色”需要同时约束 R 大、G 小、B 小，且阈值随亮度漂移；换到 HSV 后只需 <code>H</code> 落在红色区间（注意色相是<strong>环形量</strong>，红色跨 0 度）、<code>S</code> 大于阈值即可。这也是为什么颜色分割几乎总先做色彩空间转换。</p>
+<div class="card note"><p style="margin-bottom:0">工程细节：色相用 <code>mod</code> 处理环绕；低饱和度像素的色相不稳定（近灰点），必须先用 <code>S</code> 掩掉；分割后接第 09 章的形态学开闭运算去掉孤立噪点。</p></div>
+</section>
+<section id="s8-3"><h2><span class="sec-num">§8.3</span>白平衡与色彩恒常性</h2>
+<p>传感器记录的是<strong>光源光谱 × 物体反射率</strong>，两者混在一起。色彩恒常性要让估计不受光源影响，本质是欠定问题，必须加假设。三个经典假设：</p>
+<ul><li><strong>灰度世界</strong>：整幅图的平均反射是无彩色，于是把三通道均值缩放到相等（或缩放到同一目标灰度）。</li>
+<li><strong>完美反射</strong>：图中存在白色（各通道最大值的点即光源色）。</li>
+<li><strong>von Kries / 对角模型</strong>：光源变化可近似为三通道各自乘一个增益。</li></ul>
+<p>灰度世界在<strong>大面积单色主体</strong>（草地、蓝天）上会明显偏色，这是假设被破坏的典型例子；下卷的自动白平衡用数据学习来替代手工假设，但训练数据偏差会带来新的肤色偏色问题。</p>
+</section>
+<section id="lab"><h2><span class="sec-num">§</span>Octave 实例</h2>
+<h3>RGB → 亮度 / HSV、颜色分割与灰度世界白平衡</h3>
+<pre class="code" data-file="code/08-color-space.m" data-lang="GNU Octave"><code>%% 08-color-space.m | 色彩空间转换 / 颜色分割 / 灰度世界白平衡
+%% GNU Octave，零第三方依赖；合成图像，无需任何外部文件
+clear; close all; clc;
+SHOW = ~strcmp(getenv("IP_HEADLESS"), "1");
+% ---- 参数区 ----
+N = 128; target = 0.60;
+% ---- 造图：偏蓝光源下的红、绿、蓝色块 ----
+rgb = 0.25 * ones(N, N, 3);
+rgb(20:55, 20:55, 1) = 0.85;                 % 红块（被蓝色光源压暗）
+rgb(20:55, 70:105, 2) = 0.85;                % 绿块
+rgb(70:105, 20:55, 3) = 0.95;                % 蓝块
+rgb(:,:,1) = rgb(:,:,1) * 0.75;              % 模拟偏蓝光源
+rgb(:,:,3) = min(rgb(:,:,3) * 1.15, 1);
+% ---- 算法 1：感知亮度 ----
+Y = 0.299*rgb(:,:,1) + 0.587*rgb(:,:,2) + 0.114*rgb(:,:,3);
+% ---- 算法 2：手写 RGB -&gt; HSV ----
+r = rgb(:,:,1); g = rgb(:,:,2); b = rgb(:,:,3);
+mx = max(rgb, [], 3); mn = min(rgb, [], 3); d = mx - mn;
+h = zeros(N, N);
+idx = d &gt; 0 &amp; mx == r; h(idx) = mod((g(idx)-b(idx))./d(idx), 6);
+idx = d &gt; 0 &amp; mx == g; h(idx) = (b(idx)-r(idx))./d(idx) + 2;
+idx = d &gt; 0 &amp; mx == b; h(idx) = (r(idx)-g(idx))./d(idx) + 4;
+h = h / 6;  s = d ./ (mx + eps);  v = mx;
+% ---- 算法 3：灰度世界白平衡 ----
+means = squeeze(mean(mean(rgb, 1), 2));
+gain = target ./ means;
+bal = rgb;
+for ch = 1:3, bal(:,:,ch) = min(rgb(:,:,ch) * gain(ch), 1); end
+new_means = squeeze(mean(mean(bal, 1), 2));
+% ---- 算法 4：按色相分割红色（色相是环形量）----
+mask = (h &lt; 0.05 | h &gt; 0.95) &amp; s &gt; 0.3 &amp; v &gt; 0.3;
+% ---- 数值验证 ----
+printf("灰度化 Y: mean=%.4f min=%.4f max=%.4f\n", mean(Y(:)), min(Y(:)), max(Y(:)));
+printf("HSV 范围: H[%.3f,%.3f] S[%.3f,%.3f] V[%.3f,%.3f]\n", ...
+       min(h(:)), max(h(:)), min(s(:)), max(s(:)), min(v(:)), max(v(:)));
+printf("三通道均值（偏色）: %.4f %.4f %.4f\n", means(1), means(2), means(3));
+printf("白平衡增益: %.4f %.4f %.4f\n", gain(1), gain(2), gain(3));
+printf("白平衡后均值: %.4f %.4f %.4f（三通道被拉齐到 %.2f 附近）\n", ...
+       new_means(1), new_means(2), new_means(3), target);
+printf("红色掩模命中像素 = %d / %d（红块约 36x36=1296）\n", sum(mask(:)), N*N);
+% ---- 可视化 ----
+if SHOW
+  figure("name", "08 彩色处理");
+  subplot(2, 2, 1); imagesc(rgb); axis image off; title("偏蓝光源的 RGB");
+  subplot(2, 2, 2); imagesc(Y, [0 1]); colormap gray; axis image off; title("感知亮度 Y");
+  subplot(2, 2, 3); imagesc(bal); axis image off; title("灰度世界白平衡");
+  subplot(2, 2, 4); imagesc(mask, [0 1]); axis image off; title("红色色相掩模");
+end</code></pre>
+<p class="code-hint"><strong>操作：</strong>运行后把 &lt;code&gt;target&lt;/code&gt; 改成 0.4，观察增益与结果亮度；把色相阈值放宽看掩模变化。　<strong>预期与判读：</strong>H/S/V 都落在 [0,1]；偏色图三通道均值不等，白平衡后被拉到 target 附近；红色掩模命中数接近红块面积 &lt;code&gt;36×36=1296&lt;/code&gt;（受光源与阈值影响略有偏差）。　文件位置：<code>part1/08-color/code/08-color-space.m</code></p>
+<div class="card note"><p style="margin-bottom:0">代码块右上角可一键复制；本仓库 <code>code/*.m</code> 由 <code>tools/extract_code.py</code> 从这些代码块自动抽取，页面与脚本永远一致。脚本只用 Octave 核心函数，设 <code>IP_HEADLESS=1</code> 可跳过绘图。</p></div>
+</section>
+<section id="pitfalls"><h2><span class="sec-num">§</span>常见误区</h2><div class="card warn"><ul><li>把色相当线性量求平均：0 与 1 是相邻色，均值要用圆周统计或直接分区间。</li>
+<li>低饱和像素也参与色相判断：近灰点的 H 极不稳定，会制造大量噪点。</li>
+<li>灰度世界用在大面积单色场景：会把草地整体拉成灰色，产生严重偏色。</li>
+<li>RGB 转灰度直接取三通道平均：与人眼感知亮度不符，边缘检测结果会变。</li></ul></div></section>
+<section id="exercises"><h2><span class="sec-num">§</span>习题与思考</h2><ol><li>推导 &lt;code&gt;Y = 0.299R+0.587G+0.114B&lt;/code&gt; 的权重和为什么为 1，并说明换成平均会带来什么差异。</li>
+<li>在 08-color-space.m 里加入饱和度阈值扫描，画出“掩模命中数 vs S 阈值”的曲线。</li></ol></section>
+<section id="extra-links"><h2><span class="sec-num">§</span>扩展学习</h2>
+<p>以下资料按本章知识点挑选，可直接精读或对照源码；知识点地图里每一条也挂了 1～2 个直达链接。</p>
+<ul>
+<li><strong>HSL and HSV</strong>（百科）：色相/饱和度/明度的定义与转换<br><a href="https://en.wikipedia.org/wiki/HSL_and_HSV" target="_blank" rel="noopener">HSL and HSV</a></li>
+<li><strong>CIELAB color space</strong>（百科）：感知均匀色彩空间<br><a href="https://en.wikipedia.org/wiki/CIELAB_color_space" target="_blank" rel="noopener">CIELAB color space</a></li>
+<li><strong>Digital image processing</strong>（百科）：学科总览与术语索引<br><a href="https://en.wikipedia.org/wiki/Digital_image_processing" target="_blank" rel="noopener">Digital image processing</a></li>
+<li><strong>OpenCV Tutorials</strong>（文档）：官方教程，含滤波、形态学、特征与几何变换的示例<br><a href="https://docs.opencv.org/master/d6/d00/tutorial_py_root.html" target="_blank" rel="noopener">OpenCV Tutorials</a></li>
+</ul>
+<p class="code-hint">继续扩展：<a href="https://github.com/search?q=color%20space%20conversion%20white%20balance%20Octave&amp;type=repositories" target="_blank" rel="noopener">在 GitHub 检索本章相关开源工程</a> · <a href="https://www.google.com/search?q=color%20space%20conversion%20white%20balance%20Octave" target="_blank" rel="noopener">按本章主题检索资料</a> · <a href="../../index.html#resources">全书参考资源总表</a> · <a href="../../appendix/index.html">附录 A 速查与链接总表</a></p>
+</section>
+<section id="further"><h2><span class="sec-num">§</span>延伸阅读与内链</h2><ul><li><a href='../../part2/14-compression/index.html'>第 14 章 图像压缩（色度下采样）</a></li>
+<li><a href='../../part2/12-segmentation/index.html'>第 12 章 图像分割（颜色聚类）</a></li>
+<li><a href='../../part3/19-datasets-evaluation/index.html'>第 19 章 数据增强中的颜色抖动</a></li></ul></section>
+<footer class="pager" data-autofill></footer>
+<footer class="site-foot">
+<p class="credits"><strong>作者</strong>：汪亮（bertonwang）　<strong>联系邮箱</strong>：<a href="mailto:47608843@qq.com">47608843@qq.com</a></p>
+<p class="ai-note"><strong>AI 使用说明</strong>：本教材的知识框架、正文、Octave 示例代码与开源工程清单在 AI 辅助下整理生成，并经人工校订与静态自检。公式、数值与运行结果请以GNU Octave 实际输出及权威教材、官方文档为准；发现错漏欢迎通过上方邮箱勘误。</p>
+<p class="imprint">数字图像处理：从经典算法到智能方法 · 上卷每章一个 <code>code/*.m</code> Octave 脚本（由 <code>tools/extract_code.py</code> 从 HTML 同步） · 下卷给出官方开源工程链接 · GNU Octave 为自由软件，本书与之无从属关系。</p>
+</footer>
+</main>
+</body>
+</html>
